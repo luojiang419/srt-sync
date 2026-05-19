@@ -12,7 +12,6 @@ import '../providers/settings_provider.dart';
 import '../providers/timeline_provider.dart';
 import '../widgets/step_import.dart';
 import '../widgets/step_match.dart';
-import '../widgets/step_recognize.dart';
 import '../widgets/step_timeline.dart';
 import '../widgets/theme_mode_toggle_button.dart';
 
@@ -50,11 +49,6 @@ const List<ProjectModuleDef> projectModules = [
     title: 'project_step_import',
     subtitle: 'project_step_import_desc',
     icon: Icons.folder_open,
-  ),
-  ProjectModuleDef(
-    title: 'project_step_recognize',
-    subtitle: 'project_step_recognize_desc',
-    icon: Icons.mic,
   ),
   ProjectModuleDef(
     title: 'project_step_match',
@@ -220,25 +214,6 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
 
     switch (state.activeSectionIndex) {
       case 0:
-        final enabled =
-            _hasReachedStatus(projectStatus, ProjectStatus.imported) ||
-            (state.videoFiles.isNotEmpty &&
-                state.audioFiles.isNotEmpty &&
-                state.videoSubtitleFiles.isNotEmpty &&
-                state.audioSubtitleFiles.isNotEmpty);
-        return ProjectAdvanceAction(
-          label: context.loc.t('project_next_step'),
-          icon: Icons.arrow_forward_rounded,
-          color: AppTheme.highlight,
-          enabled: enabled,
-          onPressed: () async {
-            if (!_hasReachedStatus(projectStatus, ProjectStatus.imported)) {
-              await notifier.confirmImport();
-            }
-            notifier.setActiveSection(1);
-          },
-        );
-      case 1:
         final enabled = _hasReachedStatus(
           projectStatus,
           ProjectStatus.recognized,
@@ -248,14 +223,9 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
           icon: Icons.arrow_forward_rounded,
           color: AppTheme.highlight,
           enabled: enabled,
-          onPressed: () async {
-            if (!_hasReachedStatus(projectStatus, ProjectStatus.recognized)) {
-              await notifier.confirmRecognize();
-            }
-            notifier.setActiveSection(2);
-          },
+          onPressed: () async => notifier.setActiveSection(1),
         );
-      case 2:
+      case 1:
         final enabled =
             !(matchState?.isMatching ?? false) &&
             (_hasReachedStatus(projectStatus, ProjectStatus.matched) ||
@@ -269,10 +239,10 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
             if (!_hasReachedStatus(projectStatus, ProjectStatus.matched)) {
               await notifier.confirmMatched();
             }
-            notifier.setActiveSection(3);
+            notifier.setActiveSection(2);
           },
         );
-      case 3:
+      case 2:
       default:
         final isCompleted = projectStatus == ProjectStatus.completed;
         final enabled =
@@ -746,7 +716,7 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
     required bool isDockStyle,
   }) {
     final module = projectModules[state.activeSectionIndex];
-    final hideModuleHeader = state.activeSectionIndex == 2;
+    final hideModuleHeader = state.activeSectionIndex == 1;
 
     return Column(
       children: [
@@ -829,7 +799,8 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
     required MatchState? matchState,
     required bool isDockStyle,
   }) {
-    final isEnabled = action.enabled && !_isAdvancing;
+    final isEnabled =
+        action.enabled && !_isAdvancing && !state.isPreparingSubtitles;
 
     if (isDockStyle) {
       return Container(
@@ -913,14 +884,50 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
     ProjectDetailState state,
     MatchState? matchState,
   ) {
+    final prepareAction = _buildPrepareActionButton(state);
     final matchAction = _buildMatchActionButton(state, matchState);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (prepareAction != null) ...[
+          prepareAction,
+          const SizedBox(width: 12),
+        ],
         if (matchAction != null) ...[matchAction, const SizedBox(width: 12)],
         _buildAdvanceButton(action, isEnabled),
       ],
+    );
+  }
+
+  Widget? _buildPrepareActionButton(ProjectDetailState state) {
+    if (state.activeSectionIndex != 0) {
+      return null;
+    }
+
+    final canPrepare =
+        _hasCompleteImports(state) &&
+        !state.isPreparingSubtitles &&
+        !_isAdvancing;
+
+    return OutlinedButton.icon(
+      onPressed: canPrepare
+          ? () => ref
+                .read(projectDetailProvider.notifier)
+                .prepareProjectSubtitles()
+          : null,
+      icon: state.isPreparingSubtitles
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.auto_fix_high, size: 18),
+      label: Text(state.isPreparingSubtitles ? '准备中...' : '反解字幕并建立索引'),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
     );
   }
 
@@ -928,7 +935,7 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
     ProjectDetailState state,
     MatchState? matchState,
   ) {
-    if (state.activeSectionIndex != 2) {
+    if (state.activeSectionIndex != 1) {
       return null;
     }
 
@@ -1143,20 +1150,23 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
       switchOutCurve: Curves.easeIn,
       child: KeyedSubtree(
         key: ValueKey(state.activeSectionIndex),
-        child: _moduleWidget(state.activeSectionIndex),
+        child: _moduleWidget(state),
       ),
     );
   }
 
-  Widget _moduleWidget(int sectionIndex) {
-    switch (sectionIndex) {
+  Widget _moduleWidget(ProjectDetailState state) {
+    switch (state.activeSectionIndex) {
       case 0:
-        return StepImport(projectId: widget.projectId);
+        return StepImport(
+          projectId: widget.projectId,
+          isPreparingSubtitles: state.isPreparingSubtitles,
+          prepareSummary: state.prepareSummary,
+          prepareError: state.prepareError,
+        );
       case 1:
-        return StepRecognize(projectId: widget.projectId);
-      case 2:
         return StepMatch(projectId: widget.projectId);
-      case 3:
+      case 2:
         return StepTimeline(projectId: widget.projectId);
       default:
         return const SizedBox.shrink();
@@ -1198,6 +1208,13 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
       return true;
     }
     return index < state.recommendedSectionIndex;
+  }
+
+  bool _hasCompleteImports(ProjectDetailState state) {
+    return state.videoFiles.isNotEmpty &&
+        state.audioFiles.isNotEmpty &&
+        state.videoSubtitleFiles.isNotEmpty &&
+        state.audioSubtitleFiles.isNotEmpty;
   }
 
   Color _statusColor(ProjectStatus status) {

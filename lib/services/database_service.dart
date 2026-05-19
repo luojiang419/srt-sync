@@ -797,6 +797,28 @@ class DatabaseService {
     return maps.map((m) => SubtitleClip.fromMap(m)).toList();
   }
 
+  static Future<Map<String, int>> getPreparedSubtitleCountByMediaId(
+    String projectId,
+  ) async {
+    final maps = await database.rawQuery(
+      '''
+      SELECT sc.media_file_id AS media_file_id, COUNT(*) AS clip_count
+      FROM subtitle_clips sc
+      INNER JOIN media_files mf ON mf.id = sc.media_file_id
+      WHERE mf.project_id = ?
+      GROUP BY sc.media_file_id
+    ''',
+      [projectId],
+    );
+
+    return {
+      for (final map in maps)
+        if (map['media_file_id'] != null)
+          map['media_file_id'] as String:
+              (map['clip_count'] as num?)?.toInt() ?? 0,
+    };
+  }
+
   static Future<List<SubtitleClip>> getGlobalSubtitleClips(
     String subtitleFileId,
   ) async {

@@ -6,15 +6,27 @@ import 'package:path/path.dart' as p;
 
 import '../core/app_theme.dart';
 import '../core/extensions.dart';
+import '../models/asr_project.dart';
 import '../models/media_file.dart';
 import '../models/subtitle_file.dart';
+import '../providers/asr_process_provider.dart';
 import '../providers/project_detail_provider.dart';
+import '../services/subtitle_prepare_service.dart';
 import 'common/video_thumbnail_view.dart';
 
 class StepImport extends ConsumerStatefulWidget {
   final String projectId;
+  final bool isPreparingSubtitles;
+  final SubtitlePrepareSummary? prepareSummary;
+  final String? prepareError;
 
-  const StepImport({super.key, required this.projectId});
+  const StepImport({
+    super.key,
+    required this.projectId,
+    this.isPreparingSubtitles = false,
+    this.prepareSummary,
+    this.prepareError,
+  });
 
   @override
   ConsumerState<StepImport> createState() => _StepImportState();
@@ -25,6 +37,17 @@ class _StepImportState extends ConsumerState<StepImport> {
   Widget build(BuildContext context) {
     final asyncState = ref.watch(projectDetailProvider);
     final state = asyncState.valueOrNull;
+    final asrState = ref.watch(asrProcessProvider).valueOrNull;
+    final missingSubtitleFiles = [
+      ...(state?.videoFiles ?? const []).where(
+        (file) => file.subtitleStatus != SubtitleStatus.completed,
+      ),
+      ...(state?.audioFiles ?? const []).where(
+        (file) => file.subtitleStatus != SubtitleStatus.completed,
+      ),
+    ];
+    final showPreparedSubtitleCount =
+        (state?.project?.status.index ?? -1) >= ProjectStatus.recognized.index;
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -48,6 +71,26 @@ class _StepImportState extends ConsumerState<StepImport> {
             ),
           ),
           const SizedBox(height: 16),
+          if (state != null && !state.isScanning) ...[
+            _PrepareStatusPanel(
+              videoCount: state.videoFiles.length,
+              audioCount: state.audioFiles.length,
+              videoSubtitleCount: state.videoSubtitleFiles.length,
+              audioSubtitleCount: state.audioSubtitleFiles.length,
+              isPreparingSubtitles: widget.isPreparingSubtitles,
+              prepareSummary: widget.prepareSummary,
+              prepareError: widget.prepareError,
+              missingSubtitleCount: missingSubtitleFiles.length,
+              asrState: asrState,
+              onStartFallback:
+                  missingSubtitleFiles.isEmpty || (asrState?.isRunning ?? false)
+                  ? null
+                  : () => _startAsrFallback(
+                      missingSubtitleFiles.map((file) => file.id).toList(),
+                    ),
+            ),
+            const SizedBox(height: 16),
+          ],
           Expanded(
             child: state == null || state.isScanning
                 ? const Center(child: CircularProgressIndicator())
@@ -81,6 +124,10 @@ class _StepImportState extends ConsumerState<StepImport> {
                                         restrictToType: MediaType.video,
                                       );
                                 },
+                                preparedSubtitleCountByMediaId:
+                                    state.preparedSubtitleCountByMediaId,
+                                showPreparedSubtitleCount:
+                                    showPreparedSubtitleCount,
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -109,6 +156,7 @@ class _StepImportState extends ConsumerState<StepImport> {
                                         restrictToType: MediaType.audio,
                                       );
                                 },
+                                showPreparedSubtitleCount: false,
                               ),
                             ),
                           ],
@@ -275,6 +323,15 @@ class _StepImportState extends ConsumerState<StepImport> {
         .read(projectDetailProvider.notifier)
         .reorderMedia(type, orderedIds);
   }
+
+  Future<void> _startAsrFallback(List<String> targetFileIds) async {
+    await ref
+        .read(asrProcessProvider.notifier)
+        .startBatchRecognize(widget.projectId, targetFileIds: targetFileIds);
+    await ref
+        .read(projectDetailProvider.notifier)
+        .loadProject(widget.projectId);
+  }
 }
 
 class _MediaSection extends StatefulWidget {
@@ -286,6 +343,8 @@ class _MediaSection extends StatefulWidget {
   final VoidCallback onPickManifest;
   final void Function(int index, int delta) onMove;
   final ValueChanged<List<String>> onDropPaths;
+  final Map<String, int> preparedSubtitleCountByMediaId;
+  final bool showPreparedSubtitleCount;
 
   const _MediaSection({
     required this.title,
@@ -296,6 +355,8 @@ class _MediaSection extends StatefulWidget {
     required this.onPickManifest,
     required this.onMove,
     required this.onDropPaths,
+    this.preparedSubtitleCountByMediaId = const {},
+    this.showPreparedSubtitleCount = false,
   });
 
   @override
@@ -409,6 +470,14 @@ class _MediaSectionState extends State<_MediaSection> {
                                           fontSize: 11,
                                         ),
                                       ),
+                                      if (widget.showPreparedSubtitleCount &&
+                                          file.type == MediaType.video) ...[
+                                        const SizedBox(height: 8),
+                                        _StatusChip(
+                                          label:
+                                              '字幕 ${widget.preparedSubtitleCountByMediaId[file.id] ?? 0}',
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -441,6 +510,157 @@ class _MediaSectionState extends State<_MediaSection> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PrepareStatusPanel extends StatelessWidget {
+  final int videoCount;
+  final int audioCount;
+  final int videoSubtitleCount;
+  final int audioSubtitleCount;
+  final bool isPreparingSubtitles;
+  final SubtitlePrepareSummary? prepareSummary;
+  final String? prepareError;
+  final int missingSubtitleCount;
+  final AsrProcessState? asrState;
+  final VoidCallback? onStartFallback;
+
+  const _PrepareStatusPanel({
+    required this.videoCount,
+    required this.audioCount,
+    required this.videoSubtitleCount,
+    required this.audioSubtitleCount,
+    required this.isPreparingSubtitles,
+    required this.prepareSummary,
+    required this.prepareError,
+    required this.missingSubtitleCount,
+    required this.asrState,
+    required this.onStartFallback,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '字幕反解与补录',
+                      style: TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      '先在底部执行反解建立索引；如仍有素材缺失字幕，可在这里继续走旧 ASR 补录流程。',
+                      style: TextStyle(
+                        color: AppTheme.textSecondary.withValues(alpha: 0.84),
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              OutlinedButton.icon(
+                onPressed: onStartFallback,
+                icon: const Icon(Icons.mic, size: 16),
+                label: Text(
+                  (asrState?.isRunning ?? false) ? '补录中...' : '补录缺失字幕',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _StatusChip(label: '视频素材 $videoCount'),
+              _StatusChip(label: '音频素材 $audioCount'),
+              _StatusChip(label: '视频字幕 $videoSubtitleCount'),
+              _StatusChip(label: '音频字幕 $audioSubtitleCount'),
+              _StatusChip(label: '待补录素材 $missingSubtitleCount'),
+              if (isPreparingSubtitles) _StatusChip(label: '建立索引中'),
+              if (prepareSummary != null) ...[
+                _StatusChip(
+                  label: '反解字幕 ${prepareSummary!.generatedSubtitleClips}',
+                ),
+                _StatusChip(label: '音频窗口 ${prepareSummary!.generatedWindows}'),
+              ],
+            ],
+          ),
+          if (prepareError != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              prepareError!,
+              style: TextStyle(color: AppTheme.error, fontSize: 12),
+            ),
+          ],
+          if (asrState != null && asrState!.fileProgresses.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 132,
+              child: ListView.separated(
+                itemCount: asrState!.fileProgresses.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final progress = asrState!.fileProgresses[index];
+                  return Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          progress.fileName,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AppTheme.textPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        LinearProgressIndicator(value: progress.progress),
+                        const SizedBox(height: 6),
+                        Text(
+                          progress.status.label,
+                          style: TextStyle(
+                            color: AppTheme.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

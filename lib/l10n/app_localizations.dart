@@ -75,7 +75,7 @@ class AppLocalizations {
     'project_step_recognize': '字幕准备',
     'project_step_match': '一键合板',
     'project_step_timeline': '时间线与导出',
-    'project_step_import_desc': '导入并管理视频、音频素材',
+    'project_step_import_desc': '导入素材、反解字幕并建立索引',
     'project_step_recognize_desc': '反解总字幕并建立音频字幕索引',
     'project_step_match_desc': '按字幕锚点自动合板并生成异常清单',
     'project_step_timeline_desc': '检查时间线并导出 XML、CSV、SRT',
@@ -274,7 +274,8 @@ class AppLocalizations {
     'project_step_recognize': 'Prepare',
     'project_step_match': 'Sync',
     'project_step_timeline': 'Timeline Export',
-    'project_step_import_desc': 'Import and manage source video and audio',
+    'project_step_import_desc':
+        'Import sources, reverse subtitles, and build indexes',
     'project_step_recognize_desc':
         'Reverse split aggregate subtitles and build indexes',
     'project_step_match_desc': 'Run subtitle-anchor sync and review exceptions',

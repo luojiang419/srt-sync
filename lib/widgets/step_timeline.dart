@@ -77,7 +77,7 @@ class _StepTimelineState extends ConsumerState<StepTimeline> {
             child: InkWell(
               borderRadius: BorderRadius.circular(10),
               onTap: () {
-                ref.read(projectDetailProvider.notifier).setActiveSection(2);
+                ref.read(projectDetailProvider.notifier).setActiveSection(1);
               },
               child: Container(
                 padding: const EdgeInsets.all(12),
@@ -365,7 +365,7 @@ class _StepTimelineState extends ConsumerState<StepTimeline> {
           TextButton(
             onPressed: () {
               Navigator.pop(context, false);
-              ref.read(projectDetailProvider.notifier).setActiveSection(2);
+              ref.read(projectDetailProvider.notifier).setActiveSection(1);
             },
             child: const Text('返回复核'),
           ),

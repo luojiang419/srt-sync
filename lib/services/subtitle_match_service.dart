@@ -725,7 +725,7 @@ class SubtitleMatchService {
     if (audioFiles.isEmpty || audioLayouts.isEmpty) {
       return const ManualAnchorMatchPreview.error(
         error: '工程里没有可用的音频布局，无法手动匹配',
-        notes: '请先完成音频导入和字幕准备',
+        notes: '请先在素材导入页完成音频导入并执行字幕反解索引',
       );
     }
 

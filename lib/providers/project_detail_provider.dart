@@ -13,7 +13,10 @@ import '../models/subtitle_file.dart';
 import '../services/database_service.dart';
 import '../services/ffmpeg_service.dart';
 import '../services/media_scan_service.dart';
+import '../services/subtitle_prepare_service.dart';
 import '../services/video_thumbnail_service.dart';
+
+const _stateFieldUnchanged = Object();
 
 /// 工程详情状态
 class ProjectDetailState {
@@ -22,10 +25,14 @@ class ProjectDetailState {
   final List<MediaFile> audioFiles;
   final List<SubtitleFile> videoSubtitleFiles;
   final List<SubtitleFile> audioSubtitleFiles;
+  final Map<String, int> preparedSubtitleCountByMediaId;
   final int activeSectionIndex;
   final bool isLoading;
   final String? error;
   final bool isScanning;
+  final bool isPreparingSubtitles;
+  final SubtitlePrepareSummary? prepareSummary;
+  final String? prepareError;
 
   const ProjectDetailState({
     this.project,
@@ -33,10 +40,14 @@ class ProjectDetailState {
     this.audioFiles = const [],
     this.videoSubtitleFiles = const [],
     this.audioSubtitleFiles = const [],
+    this.preparedSubtitleCountByMediaId = const {},
     this.activeSectionIndex = 0,
     this.isLoading = false,
     this.error,
     this.isScanning = false,
+    this.isPreparingSubtitles = false,
+    this.prepareSummary,
+    this.prepareError,
   });
 
   ProjectDetailState copyWith({
@@ -45,10 +56,14 @@ class ProjectDetailState {
     List<MediaFile>? audioFiles,
     List<SubtitleFile>? videoSubtitleFiles,
     List<SubtitleFile>? audioSubtitleFiles,
+    Map<String, int>? preparedSubtitleCountByMediaId,
     int? activeSectionIndex,
     bool? isLoading,
     String? error,
     bool? isScanning,
+    bool? isPreparingSubtitles,
+    Object? prepareSummary = _stateFieldUnchanged,
+    Object? prepareError = _stateFieldUnchanged,
   }) {
     return ProjectDetailState(
       project: project ?? this.project,
@@ -56,10 +71,19 @@ class ProjectDetailState {
       audioFiles: audioFiles ?? this.audioFiles,
       videoSubtitleFiles: videoSubtitleFiles ?? this.videoSubtitleFiles,
       audioSubtitleFiles: audioSubtitleFiles ?? this.audioSubtitleFiles,
+      preparedSubtitleCountByMediaId:
+          preparedSubtitleCountByMediaId ?? this.preparedSubtitleCountByMediaId,
       activeSectionIndex: activeSectionIndex ?? this.activeSectionIndex,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       isScanning: isScanning ?? this.isScanning,
+      isPreparingSubtitles: isPreparingSubtitles ?? this.isPreparingSubtitles,
+      prepareSummary: identical(prepareSummary, _stateFieldUnchanged)
+          ? this.prepareSummary
+          : prepareSummary as SubtitlePrepareSummary?,
+      prepareError: identical(prepareError, _stateFieldUnchanged)
+          ? this.prepareError
+          : prepareError as String?,
     );
   }
 
@@ -70,13 +94,13 @@ class ProjectDetailState {
         return 0;
       case ProjectStatus.imported:
       case ProjectStatus.recognizing:
-        return 1;
+        return 0;
       case ProjectStatus.recognized:
-        return 2;
+        return 1;
       case ProjectStatus.matched:
       case ProjectStatus.timeline:
       case ProjectStatus.completed:
-        return 3;
+        return 2;
     }
   }
 }
@@ -94,6 +118,7 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
           const ProjectDetailState(isLoading: true),
     );
     try {
+      final previous = state.valueOrNull;
       final project = await DatabaseService.getProject(projectId);
       if (project == null) {
         state = const AsyncData(ProjectDetailState(error: '工程不存在'));
@@ -116,8 +141,10 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
         projectId,
         mediaType: MediaType.audio,
       );
+      final preparedSubtitleCountByMediaId =
+          await DatabaseService.getPreparedSubtitleCountByMediaId(projectId);
 
-      final previousActiveIndex = state.valueOrNull?.activeSectionIndex;
+      final previousActiveIndex = previous?.activeSectionIndex;
       final recommendedIndex = ProjectDetailState(
         project: project,
         videoFiles: videos,
@@ -133,7 +160,11 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
           audioFiles: audios,
           videoSubtitleFiles: videoSubtitleFiles,
           audioSubtitleFiles: audioSubtitleFiles,
+          preparedSubtitleCountByMediaId: preparedSubtitleCountByMediaId,
           activeSectionIndex: previousActiveIndex ?? recommendedIndex,
+          isPreparingSubtitles: previous?.isPreparingSubtitles ?? false,
+          prepareSummary: previous?.prepareSummary,
+          prepareError: previous?.prepareError,
         ),
       );
       Future.microtask(() => _backfillProjectVideoThumbnails(project.id));
@@ -160,7 +191,8 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
       s.project!.id,
       type: MediaType.video,
     );
-    state = AsyncData(s.copyWith(videoFiles: []));
+    await _invalidatePreparedWorkflow(s.project!.id);
+    await loadProject(s.project!.id);
     await importVideoDirectory(directoryPath);
   }
 
@@ -171,7 +203,8 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
       s!.project!.id,
       type: MediaType.audio,
     );
-    state = AsyncData(s.copyWith(audioFiles: []));
+    await _invalidatePreparedWorkflow(s.project!.id);
+    await loadProject(s.project!.id);
     await importAudioDirectory(directoryPath);
   }
 
@@ -204,15 +237,12 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
       existing.add(filePath.toLowerCase());
     }
 
-    if (mediaType == MediaType.video) {
-      state = AsyncData(
-        s.copyWith(videoSubtitleFiles: [...s.videoSubtitleFiles, ...created]),
-      );
-    } else {
-      state = AsyncData(
-        s.copyWith(audioSubtitleFiles: [...s.audioSubtitleFiles, ...created]),
-      );
+    if (created.isEmpty) {
+      return;
     }
+
+    await _invalidatePreparedWorkflow(s.project!.id);
+    await loadProject(s.project!.id);
   }
 
   Future<void> updateSubtitleFileType(
@@ -226,23 +256,38 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
         .where((file) => file.id == subtitleFileId)
         .firstOrNull;
     if (target == null) return;
+    if (target.sourceType == sourceType) return;
     await DatabaseService.updateSubtitleFile(
       target.copyWith(sourceType: sourceType),
     );
+    await _invalidatePreparedWorkflow(target.projectId);
     await loadProject(target.projectId);
   }
 
   Future<void> removeSubtitleFile(String subtitleFileId) async {
     final s = state.valueOrNull;
     if (s?.project == null) return;
+    final projectId = s!.project!.id;
     await DatabaseService.deleteSubtitleFileById(subtitleFileId);
-    await loadProject(s!.project!.id);
+    await _invalidatePreparedWorkflow(projectId);
+    await loadProject(projectId);
   }
 
   Future<void> reorderMedia(MediaType type, List<String> orderedIds) async {
     final s = state.valueOrNull;
     if (s?.project == null || orderedIds.isEmpty) return;
     final source = type == MediaType.video ? s!.videoFiles : s!.audioFiles;
+    final currentOrder = source.map((file) => file.id).toList(growable: false);
+    if (currentOrder.length == orderedIds.length) {
+      var unchanged = true;
+      for (var index = 0; index < orderedIds.length; index++) {
+        if (currentOrder[index] != orderedIds[index]) {
+          unchanged = false;
+          break;
+        }
+      }
+      if (unchanged) return;
+    }
     final map = {for (final file in source) file.id: file};
     final updated = <MediaFile>[];
     for (var index = 0; index < orderedIds.length; index++) {
@@ -252,6 +297,7 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
     }
     if (updated.isEmpty) return;
     await DatabaseService.updateMediaFiles(updated);
+    await _invalidatePreparedWorkflow(s.project!.id);
     await loadProject(s.project!.id);
   }
 
@@ -328,13 +374,48 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
     }
   }
 
+  Future<void> prepareProjectSubtitles() async {
+    final current = state.valueOrNull;
+    if (current?.project == null || !_hasCompleteImports(current!)) {
+      return;
+    }
+
+    state = AsyncData(
+      current.copyWith(isPreparingSubtitles: true, prepareError: null),
+    );
+
+    try {
+      if (!_hasReachedStatus(current.project!.status, ProjectStatus.imported)) {
+        await confirmImport();
+      }
+      final summary = await SubtitlePrepareService.prepareProject(
+        current.project!.id,
+      );
+      await confirmRecognize();
+      await loadProject(current.project!.id);
+      final latest = state.valueOrNull ?? current;
+      state = AsyncData(
+        latest.copyWith(
+          isPreparingSubtitles: false,
+          prepareSummary: summary,
+          prepareError: null,
+        ),
+      );
+    } catch (e) {
+      final latest = state.valueOrNull ?? current;
+      state = AsyncData(
+        latest.copyWith(
+          isPreparingSubtitles: false,
+          prepareError: '字幕准备失败: $e',
+        ),
+      );
+    }
+  }
+
   Future<void> confirmImport() async {
     final s = state.valueOrNull;
     if (s?.project == null) return;
-    if (s!.videoFiles.isEmpty ||
-        s.audioFiles.isEmpty ||
-        s.videoSubtitleFiles.isEmpty ||
-        s.audioSubtitleFiles.isEmpty) {
+    if (!_hasCompleteImports(s!)) {
       return;
     }
 
@@ -396,7 +477,12 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
         files.map((file) => file.path).toList(),
         mediaType,
       );
+      if (mediaFiles.isEmpty) {
+        state = AsyncData(s.copyWith(isScanning: false));
+        return;
+      }
       await DatabaseService.insertMediaFiles(mediaFiles);
+      await _invalidatePreparedWorkflow(s.project!.id);
       await loadProject(s.project!.id);
       state = AsyncData((state.valueOrNull ?? s).copyWith(isScanning: false));
     } catch (e) {
@@ -431,7 +517,10 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
 
     final newVideos = await _buildMediaFiles(videoPaths, MediaType.video);
     final newAudios = await _buildMediaFiles(audioPaths, MediaType.audio);
-    await DatabaseService.insertMediaFiles([...newVideos, ...newAudios]);
+    final newMediaFiles = [...newVideos, ...newAudios];
+    if (newMediaFiles.isEmpty) return;
+    await DatabaseService.insertMediaFiles(newMediaFiles);
+    await _invalidatePreparedWorkflow(s.project!.id);
     await loadProject(s.project!.id);
   }
 
@@ -571,6 +660,71 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
       return true;
     }
     return !File(path).existsSync();
+  }
+
+  bool _hasReachedStatus(ProjectStatus current, ProjectStatus target) =>
+      current.index >= target.index;
+
+  bool _hasCompleteImports(ProjectDetailState state) {
+    return state.videoFiles.isNotEmpty &&
+        state.audioFiles.isNotEmpty &&
+        state.videoSubtitleFiles.isNotEmpty &&
+        state.audioSubtitleFiles.isNotEmpty;
+  }
+
+  Future<void> _invalidatePreparedWorkflow(String projectId) async {
+    await DatabaseService.clearPreparedData(projectId);
+
+    final mediaFiles = await DatabaseService.getMediaFiles(projectId);
+    if (mediaFiles.isNotEmpty) {
+      await DatabaseService.updateMediaFiles(
+        mediaFiles
+            .map(
+              (file) => file.copyWith(subtitleStatus: SubtitleStatus.pending),
+            )
+            .toList(growable: false),
+      );
+    }
+
+    final project = await DatabaseService.getProject(projectId);
+    if (project == null) return;
+
+    final videos = mediaFiles.where((file) => file.type == MediaType.video);
+    final audios = mediaFiles.where((file) => file.type == MediaType.audio);
+    final videoSubtitleFiles = await DatabaseService.getSubtitleFiles(
+      projectId,
+      mediaType: MediaType.video,
+    );
+    final audioSubtitleFiles = await DatabaseService.getSubtitleFiles(
+      projectId,
+      mediaType: MediaType.audio,
+    );
+
+    final hasCompleteImports =
+        videos.isNotEmpty &&
+        audios.isNotEmpty &&
+        videoSubtitleFiles.isNotEmpty &&
+        audioSubtitleFiles.isNotEmpty;
+
+    await DatabaseService.updateProject(
+      project.copyWith(
+        status: hasCompleteImports
+            ? ProjectStatus.imported
+            : ProjectStatus.created,
+        updatedAt: DateTime.now(),
+      ),
+    );
+
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncData(
+      current.copyWith(
+        preparedSubtitleCountByMediaId: const {},
+        isPreparingSubtitles: false,
+        prepareSummary: null,
+        prepareError: null,
+      ),
+    );
   }
 }
 

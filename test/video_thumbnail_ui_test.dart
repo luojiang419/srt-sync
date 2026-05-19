@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:asr_tools/models/asr_project.dart';
 import 'package:asr_tools/models/media_file.dart';
+import 'package:asr_tools/models/subtitle_file.dart';
 import 'package:asr_tools/models/sync_result.dart';
 import 'package:asr_tools/providers/project_detail_provider.dart';
 import 'package:asr_tools/widgets/common/video_thumbnail_view.dart';
@@ -108,6 +109,145 @@ void main() {
     expect(find.byType(VideoThumbnailView), findsOneWidget);
     expect(find.text('C0001.mp4'), findsOneWidget);
   });
+
+  testWidgets(
+    'step import shows prepared subtitle count for recognized videos',
+    (tester) async {
+      _testProjectDetailState = ProjectDetailState(
+        project: AsrProject(
+          id: 'project-1',
+          name: '测试工程',
+          status: ProjectStatus.recognized,
+          createdAt: DateTime(2026, 5, 20, 10),
+          updatedAt: DateTime(2026, 5, 20, 10),
+        ),
+        videoFiles: [
+          MediaFile(
+            id: 'video-1',
+            projectId: 'project-1',
+            filePath: r'G:\video\C0001.mp4',
+            type: MediaType.video,
+            thumbnailPath: imagePath,
+            durationMs: 4200,
+            createdAt: DateTime(2026, 5, 20, 10),
+          ),
+        ],
+        audioFiles: [
+          MediaFile(
+            id: 'audio-1',
+            projectId: 'project-1',
+            filePath: r'G:\audio\A0001.wav',
+            type: MediaType.audio,
+            durationMs: 4200,
+            createdAt: DateTime(2026, 5, 20, 10),
+          ),
+        ],
+        videoSubtitleFiles: [
+          SubtitleFile(
+            id: 'vs-1',
+            projectId: 'project-1',
+            filePath: r'G:\subs\video.srt',
+            mediaType: MediaType.video,
+            createdAt: DateTime(2026, 5, 20, 10),
+          ),
+        ],
+        audioSubtitleFiles: [
+          SubtitleFile(
+            id: 'as-1',
+            projectId: 'project-1',
+            filePath: r'G:\subs\audio.srt',
+            mediaType: MediaType.audio,
+            createdAt: DateTime(2026, 5, 20, 10),
+          ),
+        ],
+        preparedSubtitleCountByMediaId: const {'video-1': 3},
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1440, 960));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            projectDetailProvider.overrideWith(TestProjectDetailNotifier.new),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(body: StepImport(projectId: 'project-1')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('字幕 3'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'step import shows zero subtitle count when recognized video has no clips',
+    (tester) async {
+      _testProjectDetailState = ProjectDetailState(
+        project: AsrProject(
+          id: 'project-1',
+          name: '测试工程',
+          status: ProjectStatus.recognized,
+          createdAt: DateTime(2026, 5, 20, 10),
+          updatedAt: DateTime(2026, 5, 20, 10),
+        ),
+        videoFiles: [
+          MediaFile(
+            id: 'video-1',
+            projectId: 'project-1',
+            filePath: r'G:\video\C0001.mp4',
+            type: MediaType.video,
+            thumbnailPath: imagePath,
+            durationMs: 4200,
+            createdAt: DateTime(2026, 5, 20, 10),
+          ),
+        ],
+        audioFiles: [
+          MediaFile(
+            id: 'audio-1',
+            projectId: 'project-1',
+            filePath: r'G:\audio\A0001.wav',
+            type: MediaType.audio,
+            durationMs: 4200,
+            createdAt: DateTime(2026, 5, 20, 10),
+          ),
+        ],
+        videoSubtitleFiles: [
+          SubtitleFile(
+            id: 'vs-1',
+            projectId: 'project-1',
+            filePath: r'G:\subs\video.srt',
+            mediaType: MediaType.video,
+            createdAt: DateTime(2026, 5, 20, 10),
+          ),
+        ],
+        audioSubtitleFiles: [
+          SubtitleFile(
+            id: 'as-1',
+            projectId: 'project-1',
+            filePath: r'G:\subs\audio.srt',
+            mediaType: MediaType.audio,
+            createdAt: DateTime(2026, 5, 20, 10),
+          ),
+        ],
+      );
+
+      await tester.binding.setSurfaceSize(const Size(1440, 960));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            projectDetailProvider.overrideWith(TestProjectDetailNotifier.new),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(body: StepImport(projectId: 'project-1')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('字幕 0'), findsOneWidget);
+    },
+  );
 
   testWidgets('match result tile renders video thumbnail', (tester) async {
     final result = SyncResult(
