@@ -80,104 +80,50 @@ class _StepMatchState extends ConsumerState<StepMatch> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Spacer(),
-                    if (state.isMatching) ...[
-                      SizedBox(
-                        width: 220,
-                        child: LinearProgressIndicator(value: state.progress),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        state.currentVideo == null
-                            ? state.stageLabel
-                            : '${state.stageLabel} · ${state.currentVideo}',
-                        style: TextStyle(
-                          color: AppTheme.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      OutlinedButton.icon(
-                        onPressed: () {
-                          ref.read(matchProvider.notifier).cancelMatching();
-                        },
-                        icon: const Icon(Icons.stop, size: 16),
-                        label: const Text('取消合板'),
-                      ),
-                    ] else
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          ref
-                              .read(matchProvider.notifier)
-                              .startMatching(widget.projectId);
-                        },
-                        icon: const Icon(Icons.auto_awesome, size: 18),
-                        label: Text(
-                          state.syncResults.isEmpty ? '一键合板' : '重新合板',
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '点击卡片查看合板依据、字幕分栏和锚点详情。低置信度结果会进入待复核工作台。',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary.withValues(alpha: 0.85),
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 10),
                 if (state.error != null)
-                  Text(
-                    state.error!,
-                    style: TextStyle(color: AppTheme.error, fontSize: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.error.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppTheme.error.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: Text(
+                      state.error!,
+                      style: TextStyle(color: AppTheme.error, fontSize: 12),
+                    ),
                   )
                 else if (state.isCancelled)
-                  Text(
-                    '本次合板已取消。',
-                    style: TextStyle(color: AppTheme.warning, fontSize: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warning.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppTheme.warning.withValues(alpha: 0.28),
+                      ),
+                    ),
+                    child: Text(
+                      '本次合板已取消。',
+                      style: TextStyle(color: AppTheme.warning, fontSize: 12),
+                    ),
                   ),
-                const SizedBox(height: 12),
+                if (state.error != null || state.isCancelled)
+                  const SizedBox(height: 12),
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    _StatChip(
-                      label: '阶段',
-                      value: state.stageLabel,
-                      color: AppTheme.highlight,
-                    ),
-                    _StatChip(
-                      label: '结果',
-                      value: '${state.syncResults.length}',
-                      color: AppTheme.highlight,
-                    ),
-                    _StatChip(
-                      label: '待复核',
-                      value: '${state.pendingCount}',
-                      color: AppTheme.warning,
-                    ),
-                    _StatChip(
-                      label: '已接受',
-                      value: '${state.acceptedCount}',
-                      color: AppTheme.success,
-                    ),
-                    _StatChip(
-                      label: '已移除',
-                      value: '${state.rejectedCount}',
-                      color: AppTheme.error,
-                    ),
-                    _StatChip(
-                      label: '未匹配视频',
-                      value: '${state.unmatchedVideos.length}',
-                      color: AppTheme.error,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
+                  spacing: 12,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       '复核筛选',

@@ -156,6 +156,7 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
                   state,
                   padding: contentPadding,
                   advanceAction: advanceAction,
+                  matchState: matchState,
                   isDockStyle: true,
                 );
               }
@@ -189,6 +190,7 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
                       state,
                       padding: contentPadding,
                       advanceAction: advanceAction,
+                      matchState: matchState,
                       isDockStyle: isDockStyle,
                     ),
                   ),
@@ -255,8 +257,9 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
         );
       case 2:
         final enabled =
-            _hasReachedStatus(projectStatus, ProjectStatus.matched) ||
-            ((matchState?.matchedCount ?? 0) > 0);
+            !(matchState?.isMatching ?? false) &&
+            (_hasReachedStatus(projectStatus, ProjectStatus.matched) ||
+                ((matchState?.matchedCount ?? 0) > 0));
         return ProjectAdvanceAction(
           label: context.loc.t('project_next_step'),
           icon: Icons.arrow_forward_rounded,
@@ -739,75 +742,80 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
     ProjectDetailState state, {
     required EdgeInsets padding,
     required ProjectAdvanceAction advanceAction,
+    required MatchState? matchState,
     required bool isDockStyle,
   }) {
     final module = projectModules[state.activeSectionIndex];
+    final hideModuleHeader = state.activeSectionIndex == 2;
 
     return Column(
       children: [
-        Padding(
-          padding: padding,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        if (!hideModuleHeader) ...[
+          Padding(
+            padding: padding,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.loc.t(module.title),
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        context.loc.t(module.subtitle),
+                        style: TextStyle(
+                          color: AppTheme.textSecondary.withValues(alpha: 0.86),
+                          fontSize: 13,
+                          height: 1.45,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  alignment: WrapAlignment.end,
                   children: [
-                    Text(
-                      context.loc.t(module.title),
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    _buildStatusPill(
+                      _statusLabel(context, state.project!.status),
+                      _statusColor(state.project!.status),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      context.loc.t(module.subtitle),
-                      style: TextStyle(
-                        color: AppTheme.textSecondary.withValues(alpha: 0.86),
-                        fontSize: 13,
-                        height: 1.45,
-                      ),
+                    _buildStatusPill(
+                      '${context.loc.t('card_videos')} ${state.videoFiles.length}',
+                      AppTheme.highlight,
                     ),
+                    _buildStatusPill(
+                      '${context.loc.t('card_audios')} ${state.audioFiles.length}',
+                      AppTheme.accent,
+                    ),
+                    if (_isModuleCompleted(state, state.activeSectionIndex))
+                      _buildStatusPill(
+                        context.loc.t('status_completed'),
+                        AppTheme.success,
+                      ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 16),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                alignment: WrapAlignment.end,
-                children: [
-                  _buildStatusPill(
-                    _statusLabel(context, state.project!.status),
-                    _statusColor(state.project!.status),
-                  ),
-                  _buildStatusPill(
-                    '${context.loc.t('card_videos')} ${state.videoFiles.length}',
-                    AppTheme.highlight,
-                  ),
-                  _buildStatusPill(
-                    '${context.loc.t('card_audios')} ${state.audioFiles.length}',
-                    AppTheme.accent,
-                  ),
-                  if (_isModuleCompleted(state, state.activeSectionIndex))
-                    _buildStatusPill(
-                      context.loc.t('status_completed'),
-                      AppTheme.success,
-                    ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        Divider(height: 1, color: AppTheme.border),
+          Divider(height: 1, color: AppTheme.border),
+        ],
         Expanded(child: _buildModuleContent(state)),
         _buildBottomActionBar(
           context,
           advanceAction,
           state,
+          matchState: matchState,
           isDockStyle: isDockStyle,
         ),
       ],
@@ -818,6 +826,7 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
     BuildContext context,
     ProjectAdvanceAction action,
     ProjectDetailState state, {
+    required MatchState? matchState,
     required bool isDockStyle,
   }) {
     final isEnabled = action.enabled && !_isAdvancing;
@@ -847,7 +856,12 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
                       const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: _buildAdvanceButton(action, isEnabled),
+                        child: _buildBottomActionButtons(
+                          action,
+                          isEnabled,
+                          state,
+                          matchState,
+                        ),
                       ),
                     ],
                   );
@@ -861,7 +875,12 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
                       Center(child: _buildBottomDock(context, state)),
                       Align(
                         alignment: Alignment.centerRight,
-                        child: _buildAdvanceButton(action, isEnabled),
+                        child: _buildBottomActionButtons(
+                          action,
+                          isEnabled,
+                          state,
+                          matchState,
+                        ),
                       ),
                     ],
                   ),
@@ -880,7 +899,63 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
         border: Border(top: BorderSide(color: AppTheme.border)),
       ),
       child: Row(
-        children: [const Spacer(), _buildAdvanceButton(action, isEnabled)],
+        children: [
+          const Spacer(),
+          _buildBottomActionButtons(action, isEnabled, state, matchState),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomActionButtons(
+    ProjectAdvanceAction action,
+    bool isEnabled,
+    ProjectDetailState state,
+    MatchState? matchState,
+  ) {
+    final matchAction = _buildMatchActionButton(state, matchState);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (matchAction != null) ...[matchAction, const SizedBox(width: 12)],
+        _buildAdvanceButton(action, isEnabled),
+      ],
+    );
+  }
+
+  Widget? _buildMatchActionButton(
+    ProjectDetailState state,
+    MatchState? matchState,
+  ) {
+    if (state.activeSectionIndex != 2) {
+      return null;
+    }
+
+    final currentMatchState = matchState ?? const MatchState();
+    if (currentMatchState.isMatching) {
+      return OutlinedButton.icon(
+        onPressed: () => ref.read(matchProvider.notifier).cancelMatching(),
+        icon: const Icon(Icons.stop, size: 16),
+        label: const Text('取消合板'),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      );
+    }
+
+    return ElevatedButton.icon(
+      onPressed: () {
+        ref.read(matchProvider.notifier).startMatching(widget.projectId);
+      },
+      icon: const Icon(Icons.auto_awesome, size: 18),
+      label: Text(currentMatchState.syncResults.isEmpty ? '一键合板' : '重新合板'),
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
