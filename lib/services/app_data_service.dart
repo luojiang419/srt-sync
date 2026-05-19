@@ -54,6 +54,16 @@ class AppDataService {
     return _ensureDirectory(p.join(root.path, projectsDirName));
   }
 
+  static Future<Directory> projectDirectory(String projectId) async {
+    final root = await projectsDirectory();
+    return _ensureDirectory(p.join(root.path, projectId));
+  }
+
+  static Future<Directory> projectThumbnailDirectory(String projectId) async {
+    final projectDir = await projectDirectory(projectId);
+    return _ensureDirectory(p.join(projectDir.path, 'thumbnails'));
+  }
+
   static Future<Directory> tempDirectory() async {
     final root = await dataRootDirectory();
     return _ensureDirectory(p.join(root.path, tempDirName));
@@ -72,6 +82,13 @@ class AppDataService {
   static Future<Directory> createTempDirectory(String prefix) async {
     await preparePersistentDataLayout();
     return (await tempDirectory()).createTemp(prefix);
+  }
+
+  static Future<void> deleteProjectDirectory(String projectId) async {
+    final dir = Directory(p.join((await projectsDirectory()).path, projectId));
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+    }
   }
 
   static Future<void> _preparePersistentDataLayoutInternal() async {

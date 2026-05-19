@@ -4,7 +4,7 @@ class AppConstants {
 
   // ========== 数据库 ==========
   static const String dbName = 'asr_tools.db';
-  static const int dbVersion = 2;
+  static const int dbVersion = 4;
 
   // ========== 文件扩展名过滤 ==========
   static const Set<String> videoExtensions = {

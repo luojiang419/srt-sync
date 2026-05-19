@@ -85,6 +85,9 @@ class DatabaseService {
     if (oldVersion < 3) {
       await _migrateToV3(db);
     }
+    if (oldVersion < 4) {
+      await _migrateToV4(db);
+    }
   }
 
   static Future<void> _createProjectsTable(Database db) async {
@@ -122,6 +125,7 @@ class DatabaseService {
         has_embedded_audio INTEGER NOT NULL DEFAULT 0,
         file_size INTEGER,
         modified_at_ms INTEGER,
+        thumbnail_path TEXT,
         subtitle_status TEXT NOT NULL DEFAULT 'pending',
         created_at INTEGER NOT NULL,
         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
@@ -416,6 +420,10 @@ class DatabaseService {
     ''');
   }
 
+  static Future<void> _migrateToV4(Database db) async {
+    await _safeAddColumn(db, 'media_files', 'thumbnail_path TEXT');
+  }
+
   static Future<void> _migrateSubtitleClipsTable(Database db) async {
     await db.execute('ALTER TABLE subtitle_clips RENAME TO subtitle_clips_old');
     await _createSubtitleClipsTable(db);
@@ -457,6 +465,16 @@ class DatabaseService {
   }
 
   static Future<void> _ensureCurrentSchema(Database db) async {
+    final mediaFileColumns = await db.rawQuery(
+      'PRAGMA table_info(media_files)',
+    );
+    final mediaColumnNames = mediaFileColumns
+        .map((row) => row['name'] as String? ?? '')
+        .toSet();
+    if (!mediaColumnNames.contains('thumbnail_path')) {
+      await _safeAddColumn(db, 'media_files', 'thumbnail_path TEXT');
+    }
+
     final syncResultColumns = await db.rawQuery(
       'PRAGMA table_info(sync_results)',
     );

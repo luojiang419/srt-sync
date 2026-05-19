@@ -51,6 +51,8 @@ class FfmpegService {
   /// ffmpeg 可执行文件公共路径
   static String get ffmpegPath => _ffmpeg;
 
+  static bool get isConfigured => File(_ffmpeg).existsSync();
+
   /// 获取媒体文件时长（毫秒）
   static Future<int> getDuration(String filePath) async {
     final info = await probeMedia(filePath);
@@ -169,6 +171,41 @@ class FfmpegService {
     if (result.exitCode != 0) {
       throw Exception('音频裁切失败: ${result.stderr}');
     }
+  }
+
+  /// 提取视频缩略图
+  static Future<String> extractVideoThumbnail({
+    required String inputPath,
+    required String outputPath,
+    int positionMs = 1000,
+    int targetWidth = 240,
+  }) async {
+    final seconds = (positionMs / 1000).toStringAsFixed(3);
+    final result = await Process.run(
+      _ffmpeg,
+      [
+        '-ss',
+        seconds,
+        '-i',
+        inputPath,
+        '-frames:v',
+        '1',
+        '-an',
+        '-vf',
+        'scale=$targetWidth:-1:force_original_aspect_ratio=decrease',
+        '-q:v',
+        '4',
+        '-y',
+        outputPath,
+      ],
+      stdoutEncoding: const SystemEncoding(),
+      stderrEncoding: const SystemEncoding(),
+    );
+
+    if (result.exitCode != 0) {
+      throw Exception('视频缩略图提取失败: ${result.stderr}');
+    }
+    return outputPath;
   }
 
   /// 裁切音频并转为 WAV（按毫秒级精度）

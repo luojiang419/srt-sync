@@ -9,6 +9,7 @@ import '../core/extensions.dart';
 import '../models/media_file.dart';
 import '../models/subtitle_file.dart';
 import '../providers/project_detail_provider.dart';
+import 'common/video_thumbnail_view.dart';
 
 class StepImport extends ConsumerStatefulWidget {
   final String projectId;
@@ -358,7 +359,8 @@ class _MediaSectionState extends State<_MediaSection> {
                     ? _EmptyHint(text: '拖拽文件或目录到这里')
                     : ListView.separated(
                         itemCount: widget.files.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, itemIndex) =>
+                            const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final file = widget.files[index];
                           return Container(
@@ -379,6 +381,12 @@ class _MediaSectionState extends State<_MediaSection> {
                                     ),
                                   ),
                                 ),
+                                if (file.type == MediaType.video) ...[
+                                  VideoThumbnailView(
+                                    thumbnailPath: file.thumbnailPath,
+                                  ),
+                                  const SizedBox(width: 12),
+                                ],
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -502,7 +510,8 @@ class _SubtitleSectionState extends State<_SubtitleSection> {
                     ? _EmptyHint(text: '拖拽 SRT 文件到这里')
                     : ListView.separated(
                         itemCount: widget.files.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        separatorBuilder: (_, itemIndex) =>
+                            const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           final file = widget.files[index];
                           return Container(

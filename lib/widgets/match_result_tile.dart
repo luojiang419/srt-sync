@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../models/media_file.dart';
 import '../models/sync_result.dart';
+import 'common/video_thumbnail_view.dart';
 
 class MatchResultTile extends StatelessWidget {
   final SyncResult result;
@@ -39,76 +40,97 @@ class MatchResultTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: color.withValues(alpha: 0.35)),
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      videoFile.filePath.split(RegExp(r'[/\\]')).last,
+              VideoThumbnailView(
+                thumbnailPath: videoFile.thumbnailPath,
+                width: 120,
+                height: 68,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            videoFile.filePath.split(RegExp(r'[/\\]')).last,
+                            style: TextStyle(
+                              color: AppTheme.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _Pill(label: result.status.label, color: color),
+                        const SizedBox(width: 6),
+                        _Pill(
+                          label: result.reviewStatus.label,
+                          color: _reviewColor(result.reviewStatus),
+                        ),
+                        IconButton(
+                          onPressed: onSecondaryAction,
+                          tooltip: secondaryTooltip,
+                          icon: Icon(secondaryIcon, size: 18),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      audioFile == null
+                          ? '未命中外录音频'
+                          : audioFile!.filePath.split(RegExp(r'[/\\]')).last,
                       style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  _Pill(label: result.status.label, color: color),
-                  const SizedBox(width: 6),
-                  _Pill(
-                    label: result.reviewStatus.label,
-                    color: _reviewColor(result.reviewStatus),
-                  ),
-                  IconButton(
-                    onPressed: onSecondaryAction,
-                    tooltip: secondaryTooltip,
-                    icon: Icon(secondaryIcon, size: 18),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                audioFile == null
-                    ? '未命中外录音频'
-                    : audioFile!.filePath.split(RegExp(r'[/\\]')).last,
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _Info(
-                    label: '置信度',
-                    value: '${(result.confidence * 100).toStringAsFixed(0)}%',
-                  ),
-                  _Info(label: '锚点', value: '${result.anchorCount}'),
-                  _Info(
-                    label: 'Source In',
-                    value: result.audioSourceInMs == null
-                        ? '--'
-                        : _formatMs(result.audioSourceInMs!),
-                  ),
-                  _Info(
-                    label: 'Source Out',
-                    value: result.audioSourceOutMs == null
-                        ? '--'
-                        : _formatMs(result.audioSourceOutMs!),
-                  ),
-                  if (result.needsReview) _Info(label: '复核', value: '需要'),
-                ],
-              ),
-              if ((result.notes ?? '').isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  result.notes!,
-                  style: TextStyle(color: AppTheme.textSecondary, fontSize: 11),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _Info(
+                          label: '置信度',
+                          value:
+                              '${(result.confidence * 100).toStringAsFixed(0)}%',
+                        ),
+                        _Info(label: '锚点', value: '${result.anchorCount}'),
+                        _Info(
+                          label: 'Source In',
+                          value: result.audioSourceInMs == null
+                              ? '--'
+                              : _formatMs(result.audioSourceInMs!),
+                        ),
+                        _Info(
+                          label: 'Source Out',
+                          value: result.audioSourceOutMs == null
+                              ? '--'
+                              : _formatMs(result.audioSourceOutMs!),
+                        ),
+                        if (result.needsReview) _Info(label: '复核', value: '需要'),
+                      ],
+                    ),
+                    if ((result.notes ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        result.notes!,
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
         ),

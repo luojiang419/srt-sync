@@ -36,6 +36,7 @@ class MediaFile {
   final bool hasEmbeddedAudio;
   final int? fileSize;
   final int? modifiedAtMs;
+  final String? thumbnailPath;
   final SubtitleStatus subtitleStatus;
   final DateTime createdAt;
 
@@ -56,6 +57,7 @@ class MediaFile {
     this.hasEmbeddedAudio = false,
     this.fileSize,
     this.modifiedAtMs,
+    this.thumbnailPath,
     this.subtitleStatus = SubtitleStatus.pending,
     required this.createdAt,
   });
@@ -73,6 +75,7 @@ class MediaFile {
     bool? hasEmbeddedAudio,
     int? fileSize,
     int? modifiedAtMs,
+    String? thumbnailPath,
     SubtitleStatus? subtitleStatus,
   }) {
     return MediaFile(
@@ -92,6 +95,7 @@ class MediaFile {
       hasEmbeddedAudio: hasEmbeddedAudio ?? this.hasEmbeddedAudio,
       fileSize: fileSize ?? this.fileSize,
       modifiedAtMs: modifiedAtMs ?? this.modifiedAtMs,
+      thumbnailPath: thumbnailPath ?? this.thumbnailPath,
       subtitleStatus: subtitleStatus ?? this.subtitleStatus,
       createdAt: createdAt,
     );
@@ -115,6 +119,7 @@ class MediaFile {
       hasEmbeddedAudio: (map['has_embedded_audio'] as int? ?? 0) == 1,
       fileSize: map['file_size'] as int?,
       modifiedAtMs: map['modified_at_ms'] as int?,
+      thumbnailPath: map['thumbnail_path'] as String?,
       subtitleStatus: SubtitleStatus.values.firstWhere(
         (e) => e.name == map['subtitle_status'],
         orElse: () => SubtitleStatus.pending,
@@ -140,6 +145,7 @@ class MediaFile {
     'has_embedded_audio': hasEmbeddedAudio ? 1 : 0,
     'file_size': fileSize,
     'modified_at_ms': modifiedAtMs,
+    'thumbnail_path': thumbnailPath,
     'subtitle_status': subtitleStatus.name,
     'created_at': createdAt.millisecondsSinceEpoch,
   };

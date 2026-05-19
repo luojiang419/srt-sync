@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,6 +13,7 @@ import '../models/subtitle_file.dart';
 import '../services/database_service.dart';
 import '../services/ffmpeg_service.dart';
 import '../services/media_scan_service.dart';
+import '../services/video_thumbnail_service.dart';
 
 /// 工程详情状态
 class ProjectDetailState {
@@ -81,6 +83,7 @@ class ProjectDetailState {
 
 class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
   static const _uuid = Uuid();
+  bool _isBackfillingVideoThumbnails = false;
 
   @override
   ProjectDetailState build() => const ProjectDetailState();
@@ -133,6 +136,7 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
           activeSectionIndex: previousActiveIndex ?? recommendedIndex,
         ),
       );
+      Future.microtask(() => _backfillProjectVideoThumbnails(project.id));
     } catch (e) {
       state = AsyncData(ProjectDetailState(error: e.toString()));
     }
@@ -151,8 +155,9 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
   Future<void> reimportVideoDirectory(String directoryPath) async {
     final s = state.valueOrNull;
     if (s?.project == null) return;
+    await VideoThumbnailService.deleteProjectCache(s!.project!.id);
     await DatabaseService.deleteMediaFiles(
-      s!.project!.id,
+      s.project!.id,
       type: MediaType.video,
     );
     state = AsyncData(s.copyWith(videoFiles: []));
@@ -448,25 +453,30 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
       try {
         info = await FfmpegService.probeMedia(filePath);
       } catch (_) {}
-      output.add(
-        MediaFile(
-          id: _uuid.v4(),
-          projectId: s.project!.id,
-          filePath: filePath,
-          type: type,
-          durationMs: info?.durationMs,
-          sortIndex: nextSortIndex++,
-          frameRate: info?.frameRate,
-          sampleRate: info?.sampleRate,
-          channels: info?.channels,
-          width: info?.width,
-          height: info?.height,
-          hasEmbeddedAudio: info?.hasEmbeddedAudio ?? false,
-          fileSize: info?.fileSize,
-          modifiedAtMs: info?.modifiedAtMs,
-          createdAt: now,
-        ),
+      var mediaFile = MediaFile(
+        id: _uuid.v4(),
+        projectId: s.project!.id,
+        filePath: filePath,
+        type: type,
+        durationMs: info?.durationMs,
+        sortIndex: nextSortIndex++,
+        frameRate: info?.frameRate,
+        sampleRate: info?.sampleRate,
+        channels: info?.channels,
+        width: info?.width,
+        height: info?.height,
+        hasEmbeddedAudio: info?.hasEmbeddedAudio ?? false,
+        fileSize: info?.fileSize,
+        modifiedAtMs: info?.modifiedAtMs,
+        createdAt: now,
       );
+      if (type == MediaType.video) {
+        final thumbnailPath = await VideoThumbnailService.ensureThumbnail(
+          mediaFile,
+        );
+        mediaFile = mediaFile.copyWith(thumbnailPath: thumbnailPath);
+      }
+      output.add(mediaFile);
     }
     return output;
   }
@@ -520,6 +530,47 @@ class ProjectDetailNotifier extends AsyncNotifier<ProjectDetailState> {
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList();
+  }
+
+  Future<void> _backfillProjectVideoThumbnails(String projectId) async {
+    if (_isBackfillingVideoThumbnails) return;
+    final current = state.valueOrNull;
+    if (current?.project?.id != projectId) return;
+
+    final pending = current!.videoFiles
+        .where(_needsThumbnailBackfill)
+        .toList(growable: false);
+    if (pending.isEmpty) return;
+
+    _isBackfillingVideoThumbnails = true;
+    try {
+      var updatedAny = false;
+      for (final file in pending) {
+        final thumbnailPath = await VideoThumbnailService.ensureThumbnail(file);
+        if (thumbnailPath == null || thumbnailPath == file.thumbnailPath) {
+          continue;
+        }
+        await DatabaseService.updateMediaFile(
+          file.copyWith(thumbnailPath: thumbnailPath),
+        );
+        updatedAny = true;
+      }
+      if (updatedAny) {
+        await loadProject(projectId);
+      }
+    } finally {
+      _isBackfillingVideoThumbnails = false;
+    }
+  }
+
+  bool _needsThumbnailBackfill(MediaFile file) {
+    if (file.type != MediaType.video) return false;
+    if (!File(file.filePath).existsSync()) return false;
+    final path = file.thumbnailPath;
+    if (path == null || path.trim().isEmpty) {
+      return true;
+    }
+    return !File(path).existsSync();
   }
 }
 

@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../models/asr_project.dart';
 import '../services/database_service.dart';
+import '../services/video_thumbnail_service.dart';
 
 /// 工程列表状态
 class ProjectListState {
@@ -78,6 +79,7 @@ class ProjectListNotifier extends AsyncNotifier<ProjectListState> {
   /// 删除工程
   Future<void> deleteProject(String id) async {
     await DatabaseService.deleteProject(id);
+    await VideoThumbnailService.deleteProjectCache(id);
     await loadProjects();
   }
 
