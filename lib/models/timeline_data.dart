@@ -10,6 +10,7 @@ class TimelineData {
   final String audioFileName;
   final String videoFilePath;
   final String audioFilePath;
+  final bool videoHasEmbeddedAudio;
   final int videoStartMs;
   final int videoEndMs;
   final int timelineStartMs;
@@ -40,6 +41,7 @@ class TimelineData {
     this.audioFileName = '',
     this.videoFilePath = '',
     this.audioFilePath = '',
+    this.videoHasEmbeddedAudio = false,
     this.videoStartMs = 0,
     required this.videoEndMs,
     this.timelineStartMs = 0,
@@ -85,6 +87,7 @@ class TimelineData {
     String? reviewNote,
     bool clearReviewNote = false,
     String? trimmedAudioPath,
+    bool? videoHasEmbeddedAudio,
     List<SubtitleClip>? videoSubtitles,
     List<SubtitleClip>? audioSubtitles,
   }) {
@@ -96,6 +99,8 @@ class TimelineData {
       audioFileName: audioFileName,
       videoFilePath: videoFilePath,
       audioFilePath: audioFilePath,
+      videoHasEmbeddedAudio:
+          videoHasEmbeddedAudio ?? this.videoHasEmbeddedAudio,
       videoStartMs: videoStartMs ?? this.videoStartMs,
       videoEndMs: videoEndMs ?? this.videoEndMs,
       timelineStartMs: timelineStartMs ?? this.timelineStartMs,

@@ -54,6 +54,7 @@ class AudioAlignService {
           : _fileName(audioFile.filePath),
       videoFilePath: videoFile.filePath,
       audioFilePath: audioFile?.filePath ?? '',
+      videoHasEmbeddedAudio: videoFile.hasEmbeddedAudio,
       videoStartMs: 0,
       videoEndMs: syncResult.videoDurationMs,
       timelineStartMs: syncResult.timelineStartMs,
