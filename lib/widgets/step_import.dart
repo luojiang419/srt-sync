@@ -50,27 +50,10 @@ class _StepImportState extends ConsumerState<StepImport> {
         (state?.project?.status.index ?? -1) >= ProjectStatus.recognized.index;
 
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '素材导入',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '按四个区域分别导入视频、音频、视频字幕和音频字幕。素材顺序就是后续总字幕反解的平铺顺序。',
-            style: TextStyle(
-              color: AppTheme.textSecondary.withValues(alpha: 0.8),
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 16),
           if (state != null && !state.isScanning) ...[
             _PrepareStatusPanel(
               videoCount: state.videoFiles.length,

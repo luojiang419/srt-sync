@@ -716,7 +716,8 @@ class _ProjectScreenState extends ConsumerState<ProjectScreen> {
     required bool isDockStyle,
   }) {
     final module = projectModules[state.activeSectionIndex];
-    final hideModuleHeader = state.activeSectionIndex == 1;
+    final hideModuleHeader =
+        state.activeSectionIndex == 0 || state.activeSectionIndex == 1;
 
     return Column(
       children: [

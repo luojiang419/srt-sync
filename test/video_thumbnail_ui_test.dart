@@ -108,6 +108,11 @@ void main() {
 
     expect(find.byType(VideoThumbnailView), findsOneWidget);
     expect(find.text('C0001.mp4'), findsOneWidget);
+    expect(find.text('素材导入'), findsNothing);
+    expect(
+      find.text('按四个区域分别导入视频、音频、视频字幕和音频字幕。素材顺序就是后续总字幕反解的平铺顺序。'),
+      findsNothing,
+    );
   });
 
   testWidgets(

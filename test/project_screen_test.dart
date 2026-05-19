@@ -18,7 +18,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'project screen removes recognize module and keeps import actions ordered in menu style',
+    'project screen keeps only one import status group in menu style',
     (tester) async {
       _testSettings = const AppSettings(projectNavigationStyle: 'menu');
       _testProjectDetailState = _buildProjectDetailState();
@@ -30,6 +30,9 @@ void main() {
       expect(find.text('字幕准备'), findsNothing);
       expect(find.text('反解字幕并建立索引'), findsOneWidget);
       expect(find.text('进入下一步'), findsOneWidget);
+      expect(find.text('字幕反解与补录'), findsOneWidget);
+      expect(find.text('视频 1'), findsOneWidget);
+      expect(find.text('音频 1'), findsOneWidget);
 
       final prepareX = tester.getTopLeft(find.text('反解字幕并建立索引')).dx;
       final nextX = tester.getTopLeft(find.text('进入下一步')).dx;
@@ -38,7 +41,7 @@ void main() {
   );
 
   testWidgets(
-    'project screen keeps dock actions on the right of the dock navigation',
+    'project screen keeps dock actions on the right without duplicate top status group',
     (tester) async {
       _testSettings = const AppSettings(projectNavigationStyle: 'dock');
       _testProjectDetailState = _buildProjectDetailState();
@@ -50,6 +53,9 @@ void main() {
       expect(find.text('字幕准备'), findsNothing);
       expect(find.text('反解字幕并建立索引'), findsOneWidget);
       expect(find.text('进入下一步'), findsOneWidget);
+      expect(find.text('字幕反解与补录'), findsOneWidget);
+      expect(find.text('视频 1'), findsOneWidget);
+      expect(find.text('音频 1'), findsOneWidget);
 
       final dockX = tester.getTopLeft(find.text('时间线与导出')).dx;
       final nextX = tester.getTopLeft(find.text('进入下一步')).dx;
