@@ -473,15 +473,15 @@ class _StepMatchState extends ConsumerState<StepMatch> {
     final clampedIndex = initialIndex.clamp(0, results.length - 1);
     final sequenceIds = results.map((item) => item.id).toList(growable: false);
 
-    await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => SyncReviewDialog(
-        projectId: widget.projectId,
-        syncResultId: sequenceIds[clampedIndex],
-        reviewSequenceIds: sequenceIds,
-        initialIndex: clampedIndex,
-        sequenceMode: _toSequenceMode(filter),
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => SyncReviewPage(
+          projectId: widget.projectId,
+          syncResultId: sequenceIds[clampedIndex],
+          reviewSequenceIds: sequenceIds,
+          initialIndex: clampedIndex,
+          sequenceMode: _toSequenceMode(filter),
+        ),
       ),
     );
   }

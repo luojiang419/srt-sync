@@ -27,7 +27,7 @@ class _ResolvedAnchorPreviewItem {
   });
 }
 
-class SyncReviewDialog extends ConsumerStatefulWidget {
+class SyncReviewPage extends ConsumerStatefulWidget {
   final String projectId;
   final String syncResultId;
   final List<String> reviewSequenceIds;
@@ -40,7 +40,7 @@ class SyncReviewDialog extends ConsumerStatefulWidget {
   })?
   previewResolver;
 
-  const SyncReviewDialog({
+  const SyncReviewPage({
     super.key,
     required this.projectId,
     required this.syncResultId,
@@ -51,10 +51,23 @@ class SyncReviewDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SyncReviewDialog> createState() => _SyncReviewDialogState();
+  ConsumerState<SyncReviewPage> createState() => _SyncReviewPageState();
 }
 
-class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
+@Deprecated('Use SyncReviewPage instead.')
+class SyncReviewDialog extends SyncReviewPage {
+  const SyncReviewDialog({
+    super.key,
+    required super.projectId,
+    required super.syncResultId,
+    required super.reviewSequenceIds,
+    required super.initialIndex,
+    required super.sequenceMode,
+    super.previewResolver,
+  });
+}
+
+class _SyncReviewPageState extends ConsumerState<SyncReviewPage> {
   final ScrollController _videoController = ScrollController();
   final ScrollController _audioController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
@@ -125,26 +138,26 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
       autofocus: true,
       focusNode: _dialogFocusNode,
       onKeyEvent: _handleDialogKeyEvent,
-      child: Dialog(
-        insetPadding: const EdgeInsets.all(28),
-        child: Container(
-          width: 1240,
-          height: 820,
-          padding: const EdgeInsets.all(20),
-          child: detailAsync.when(
-            data: (detail) {
-              if (detail == null) {
-                return Center(
-                  child: Text(
-                    '当前结果不存在或已被移除。',
-                    style: TextStyle(color: AppTheme.textSecondary),
-                  ),
-                );
-              }
-              return _buildContent(context, detail);
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('加载失败: $e')),
+      child: Scaffold(
+        backgroundColor: AppTheme.background,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: detailAsync.when(
+              data: (detail) {
+                if (detail == null) {
+                  return Center(
+                    child: Text(
+                      '当前结果不存在或已被移除。',
+                      style: TextStyle(color: AppTheme.textSecondary),
+                    ),
+                  );
+                }
+                return _buildContent(context, detail);
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('加载失败: $e')),
+            ),
           ),
         ),
       ),
@@ -350,6 +363,14 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        IconButton(
+          onPressed: _isHandlingAction
+              ? null
+              : () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.arrow_back),
+          tooltip: '返回',
+        ),
+        const SizedBox(width: 4),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -70,16 +70,16 @@ void main() {
                 builder: (context) => Center(
                   child: ElevatedButton(
                     onPressed: () {
-                      showDialog<void>(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (_) => SyncReviewDialog(
-                          projectId: 'project-1',
-                          syncResultId: 'sync-1',
-                          reviewSequenceIds: const ['sync-1'],
-                          initialIndex: 0,
-                          sequenceMode: SyncReviewDialogSequenceMode.pending,
-                          previewResolver: previewResolver,
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => SyncReviewPage(
+                            projectId: 'project-1',
+                            syncResultId: 'sync-1',
+                            reviewSequenceIds: const ['sync-1'],
+                            initialIndex: 0,
+                            sequenceMode: SyncReviewDialogSequenceMode.pending,
+                            previewResolver: previewResolver,
+                          ),
                         ),
                       );
                     },
@@ -98,6 +98,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('合板详情与复核'), findsOneWidget);
+      expect(find.byType(Dialog), findsNothing);
       expect(find.text('音频总字幕'), findsOneWidget);
       expect(find.text('总字幕: all_audio.srt'), findsOneWidget);
       expect(find.text('第一条说明'), findsOneWidget);
@@ -178,16 +179,16 @@ void main() {
                 builder: (context) => Center(
                   child: ElevatedButton(
                     onPressed: () {
-                      showDialog<void>(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (_) => SyncReviewDialog(
-                          projectId: 'project-1',
-                          syncResultId: 'sync-1',
-                          reviewSequenceIds: _detailOrder,
-                          initialIndex: 0,
-                          sequenceMode: SyncReviewDialogSequenceMode.all,
-                          previewResolver: _previewResolver,
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => SyncReviewPage(
+                            projectId: 'project-1',
+                            syncResultId: 'sync-1',
+                            reviewSequenceIds: _detailOrder,
+                            initialIndex: 0,
+                            sequenceMode: SyncReviewDialogSequenceMode.all,
+                            previewResolver: _previewResolver,
+                          ),
                         ),
                       );
                     },
@@ -205,7 +206,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('第一条说明'), findsOneWidget);
-      expect(find.byType(SyncReviewDialog), findsOneWidget);
+      expect(find.byType(SyncReviewPage), findsOneWidget);
+      expect(find.byType(Dialog), findsNothing);
 
       final previousButton = tester.widget<OutlinedButton>(
         find.widgetWithText(OutlinedButton, '上一条'),
@@ -214,7 +216,7 @@ void main() {
 
       await tester.tapAt(const Offset(12, 12));
       await tester.pumpAndSettle();
-      expect(find.byType(SyncReviewDialog), findsOneWidget);
+      expect(find.byType(SyncReviewPage), findsOneWidget);
 
       await tester.tap(find.widgetWithText(OutlinedButton, '下一条'));
       await tester.pumpAndSettle();
@@ -235,7 +237,8 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(find.byType(SyncReviewDialog), findsNothing);
+      expect(find.byType(SyncReviewPage), findsNothing);
+      expect(find.text('open'), findsOneWidget);
     },
   );
 
@@ -254,16 +257,16 @@ void main() {
                 builder: (context) => Center(
                   child: ElevatedButton(
                     onPressed: () {
-                      showDialog<void>(
-                        context: context,
-                        barrierDismissible: false,
-                        builder: (_) => SyncReviewDialog(
-                          projectId: 'project-1',
-                          syncResultId: 'sync-1',
-                          reviewSequenceIds: _detailOrder,
-                          initialIndex: 0,
-                          sequenceMode: SyncReviewDialogSequenceMode.pending,
-                          previewResolver: _previewResolver,
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => SyncReviewPage(
+                            projectId: 'project-1',
+                            syncResultId: 'sync-1',
+                            reviewSequenceIds: _detailOrder,
+                            initialIndex: 0,
+                            sequenceMode: SyncReviewDialogSequenceMode.pending,
+                            previewResolver: _previewResolver,
+                          ),
                         ),
                       );
                     },
@@ -287,7 +290,7 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      expect(find.byType(SyncReviewDialog), findsOneWidget);
+      expect(find.byType(SyncReviewPage), findsOneWidget);
       expect(find.text('第二条说明'), findsOneWidget);
       expect(find.text('素材 1/1'), findsOneWidget);
     },

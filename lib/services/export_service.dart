@@ -23,6 +23,34 @@ class ExportService {
 
   static const _fps = 24;
 
+  static String sanitizeExportBaseName(
+    String rawName, {
+    String fallbackName = 'ASR Timeline',
+  }) {
+    String sanitize(String value) {
+      final normalized = value
+          .trim()
+          .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+          .replaceAll(RegExp(r'\s+'), ' ');
+      if (!RegExp(r'[\p{L}\p{N}]', unicode: true).hasMatch(normalized)) {
+        return '';
+      }
+      return normalized;
+    }
+
+    final normalized = sanitize(rawName);
+    if (normalized.isNotEmpty) {
+      return normalized;
+    }
+
+    final normalizedFallback = sanitize(fallbackName);
+    if (normalizedFallback.isNotEmpty) {
+      return normalizedFallback;
+    }
+
+    return 'ASR Timeline';
+  }
+
   // ==================== FCPXML 导出 ====================
 
   /// 导出为 FCPXML 1.8 格式

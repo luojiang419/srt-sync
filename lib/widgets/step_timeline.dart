@@ -223,14 +223,75 @@ class _StepTimelineState extends ConsumerState<StepTimeline> {
   Future<void> _exportXml(ExportPreset preset, MatchState? matchState) async {
     final shouldContinue = await _confirmExportIfNeeded(matchState);
     if (!shouldContinue) return;
+
+    final projectName =
+        ref.read(projectDetailProvider).valueOrNull?.project?.name ??
+        'ASR Timeline';
+    final rawBaseName = await _promptXmlExportBaseName(
+      preset: preset,
+      defaultName: projectName,
+    );
+    if (rawBaseName == null || !mounted) return;
+
+    final baseName = ExportService.sanitizeExportBaseName(
+      rawBaseName,
+      fallbackName: projectName,
+    );
     final dir = await FilePicker.platform.getDirectoryPath(
       dialogTitle: '选择 ${preset.label} XML 导出目录',
     );
     if (dir == null) return;
-    final outputPath = '$dir\\${widget.projectId}_${preset.name}';
+    final outputPath = '$dir\\$baseName';
     await ref
         .read(timelineProvider.notifier)
         .exportXml(outputPath, preset: preset);
+  }
+
+  Future<String?> _promptXmlExportBaseName({
+    required ExportPreset preset,
+    required String defaultName,
+  }) async {
+    final controller = TextEditingController(text: defaultName);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('设置${preset.label} XML 名称'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('将同时生成同名基底的 .xml 和 .fcpxml 文件。'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: '导出名称',
+                  hintText: '请输入导出名称',
+                ),
+                onSubmitted: (value) {
+                  Navigator.of(context).pop(value);
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('下一步'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
   }
 
   Future<void> _exportCsv(MatchState? matchState) async {
