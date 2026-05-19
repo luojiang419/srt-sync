@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fcpxml version="1.8">
+  <resources>
+    <format id="f_video" name="FFVideoFormat1080p24" frameDuration="100/2400s" width="1920" height="1080"/>
+    <asset id="a_1f75146d-015a-4787-b7ca-bacc279ff557" name="C0449.mp4" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/1_Video/220822shipin/C0449.mp4" hasVideo="1" hasAudio="1">
+      <media-rep kind="original-media" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/1_Video/220822shipin/C0449.mp4"/>
+    </asset>
+    <asset id="a_0afa337d-5c47-40c2-bce8-c4724a44edb5" name="ZOOM0021_LR.mp3" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/2_Audio/220822yinpin/ZOOM0021_LR.mp3" hasVideo="0" hasAudio="1">
+      <media-rep kind="original-media" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/2_Audio/220822yinpin/ZOOM0021_LR.mp3"/>
+    </asset>
+    <asset id="a_381c3aae-8a34-42f8-bda7-5a318e225a9b" name="C0450.mp4" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/1_Video/220822shipin/C0450.mp4" hasVideo="1" hasAudio="1">
+      <media-rep kind="original-media" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/1_Video/220822shipin/C0450.mp4"/>
+    </asset>
+    <asset id="a_0c240002-4b7c-44a9-b141-c13daefc9c78" name="ZOOM0022_LR.mp3" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/2_Audio/220822yinpin/ZOOM0022_LR.mp3" hasVideo="0" hasAudio="1">
+      <media-rep kind="original-media" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/2_Audio/220822yinpin/ZOOM0022_LR.mp3"/>
+    </asset>
+  </resources>
+  <library location="">
+    <event name="ASR Timeline">
+      <project name="ASR Timeline">
+        <sequence format="f_video" duration="1640000/2400s" tcStart="0s" tcFormat="NDF">
+          <spine>
+            <asset-clip ref="a_1f75146d-015a-4787-b7ca-bacc279ff557" name="C0449.mp4" offset="0/2400s" duration="1269900/2400s" start="0/2400s"/>
+            <asset-clip ref="a_381c3aae-8a34-42f8-bda7-5a318e225a9b" name="C0450.mp4" offset="1269900/2400s" duration="370100/2400s" start="0/2400s"/>
+          </spine>
+          <asset-clip ref="a_0afa337d-5c47-40c2-bce8-c4724a44edb5" name="ZOOM0021_LR.mp3" offset="6400/2400s" duration="1181500/2400s" start="0/2400s"/>
+          <asset-clip ref="a_0c240002-4b7c-44a9-b141-c13daefc9c78" name="ZOOM0022_LR.mp3" offset="1269900/2400s" duration="3200/2400s" start="356800/2400s"/>
+        </sequence>
+      </project>
+    </event>
+  </library>
+</fcpxml>

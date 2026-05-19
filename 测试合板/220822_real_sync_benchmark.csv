@@ -1,0 +1,12 @@
+video_file,audio_file,confidence,status,method,source_in_ms,source_out_ms,anchors,needs_review,review_status,reviewed_at_ms,marker
+"C0449.mp4","ZOOM0021_LR.mp3",0.5269,"音频过短","subtitleOnly",0,498677,1,1,"pending",,"音频过短 53% | ZOOM0021_LR.mp3 | 00:00:00 - 00:08:18 | anchors=1"
+"C0450.mp4","ZOOM0024_LR.mp3",0.6057,"低置信度","subtitleOnly",274128,428347,1,1,"pending",,"低置信度 61% | ZOOM0024_LR.mp3 | 00:04:34 - 00:07:08 | anchors=1"
+"C0451.mp4","ZOOM0024_LR.mp3",0.4375,"低置信度","subtitleOnly",453380,584089,0,1,"pending",,"低置信度 44% | ZOOM0024_LR.mp3 | 00:07:33 - 00:09:44 | anchors=0"
+"C0452.mp4","未匹配音频",0.4166,"未匹配","subtitleOnly",0,0,0,1,"pending",,"未匹配 42% | 无音频 | -- - -- | anchors=0"
+"C0453.mp4","未匹配音频",0.0000,"无字幕","subtitleOnly",0,0,0,1,"pending",,"无字幕 0% | 无音频 | -- - -- | anchors=0"
+"C0454.mp4","ZOOM0026_LR.mp3",0.5749,"音频过短","subtitleOnly",0,251765,8,1,"pending",,"音频过短 57% | ZOOM0026_LR.mp3 | 00:00:00 - 00:04:11 | anchors=8"
+"C0455.mp4","未匹配音频",0.0000,"未匹配","subtitleOnly",0,0,0,1,"pending",,"未匹配 0% | 无音频 | -- - -- | anchors=0"
+"C0456.mp4","未匹配音频",0.0000,"无字幕","subtitleOnly",0,0,0,1,"pending",,"无字幕 0% | 无音频 | -- - -- | anchors=0"
+"C0457.mp4","ZOOM0035_LR.mp3",0.4631,"越界修正","subtitleOnly",0,1032107,147,1,"pending",,"越界修正 46% | ZOOM0035_LR.mp3 | 00:00:00 - 00:17:12 | anchors=147"
+"C0458.mp4","ZOOM0040_LR.mp3",0.8064,"音频过短","subtitleOnly",0,173556,2,1,"pending",,"音频过短 81% | ZOOM0040_LR.mp3 | 00:00:00 - 00:02:53 | anchors=2"
+"C0459.mp4","ZOOM0041_LR.mp3",0.6336,"音频过短","subtitleOnly",935,313095,5,1,"pending",,"音频过短 63% | ZOOM0041_LR.mp3 | 00:00:00 - 00:05:13 | anchors=5"

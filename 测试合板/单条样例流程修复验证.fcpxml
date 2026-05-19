@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fcpxml version="1.8">
+  <resources>
+    <format id="f_video" name="FFVideoFormat1080p24" frameDuration="100/2400s" width="1920" height="1080"/>
+    <asset id="a_73609a5f-05da-44f2-b732-623afe00f909" name="C0459.mp4" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/1_Video/220822shipin/C0459.mp4" hasVideo="1" hasAudio="1">
+      <media-rep kind="original-media" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/1_Video/220822shipin/C0459.mp4"/>
+    </asset>
+    <asset id="a_25e8188d-885d-4a4a-a56e-0b84a8b8a9fb" name="ZOOM0041_LR.mp3" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/2_Audio/220822yinpin/ZOOM0041_LR.mp3" hasVideo="0" hasAudio="1">
+      <media-rep kind="original-media" src="file://localhost/G%3a/data/260224-%e5%85%83%e6%95%b0%e6%8d%ae%e8%84%9a%e6%9c%ac%e6%b5%8b%e8%af%95/2_Audio/220822yinpin/ZOOM0041_LR.mp3"/>
+    </asset>
+  </resources>
+  <library location="">
+    <event name="ASR Timeline">
+      <project name="ASR Timeline">
+        <sequence format="f_video" duration="758100/2400s" tcStart="0s" tcFormat="NDF">
+          <spine>
+            <asset-clip ref="a_73609a5f-05da-44f2-b732-623afe00f909" name="C0459.mp4" offset="0/2400s" duration="758100/2400s" start="0/2400s"/>
+          </spine>
+          <asset-clip ref="a_25e8188d-885d-4a4a-a56e-0b84a8b8a9fb" name="ZOOM0041_LR.mp3" offset="0/2400s" duration="232800/2400s" start="335900/2400s"/>
+        </sequence>
+      </project>
+    </event>
+  </library>
+</fcpxml>

@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASR合板工具 — 逻辑链可视化</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --card: #1c2333;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --accent: #e94560;
+    --blue: #58a6ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --purple: #bc8cff;
+    --cyan: #39d2c0;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    padding: 32px 24px 24px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header h1 {
+    font-size: 28px; font-weight: 700;
+    background: linear-gradient(90deg, var(--accent), var(--orange));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+  .header p { color: var(--text2); font-size: 14px; }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 4px;
+    background: var(--surface);
+    padding: 8px 24px;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    position: sticky; top: 86px; z-index: 99;
+  }
+  .tab {
+    padding: 8px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  .tab:hover { background: var(--card); color: var(--text); }
+  .tab.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  /* Content */
+  .content { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  .section { display: none; animation: fadeIn .3s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card h2 {
+    font-size: 18px; font-weight: 600;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h2 .icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  /* Mermaid container */
+  .mermaid-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+  }
+  .mermaid-wrap svg { max-width: 100%; height: auto; }
+
+  /* Legend */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 3px;
+  }
+
+  /* Info grid */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .info-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .info-item h3 {
+    font-size: 13px; font-weight: 600;
+    color: var(--blue);
+    margin-bottom: 8px;
+  }
+  .info-item p { font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .info-item code {
+    background: rgba(88,166,255,0.1);
+    color: var(--blue);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+
+  /* Status flow */
+  .status-flow {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    align-items: center;
+    padding: 16px;
+  }
+  .status-node {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .status-arrow { color: var(--text2); font-size: 18px; }
+
+  /* Table */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .data-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--surface);
+    color: var(--text2);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table code {
+    background: rgba(88,166,255,0.1);
+    color: var(--blue);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>ASR合板工具 — 逻辑链可视化</h1>
+  <p>v0.8.0 | Flutter + Riverpod + SQLite + sherpa-onnx</p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="show('arch')">系统架构</div>
+  <div class="tab" onclick="show('flow')">业务流程</div>
+  <div class="tab" onclick="show('data')">数据模型</div>
+  <div class="tab" onclick="show('state')">状态管理</div>
+  <div class="tab" onclick="show('asr')">ASR引擎</div>
+  <div class="tab" onclick="show('match')">匹配算法</div>
+  <div class="tab" onclick="show('export')">导出流程</div>
+</div>
+
+<div class="content">
+
+<!-- ==================== 系统架构 ==================== -->
+<div id="sec-arch" class="section active">
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--accent)">🏗</span> 分层架构图</h2>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+graph TB
+    subgraph UI["🎨 UI 层 (screens + widgets)"]
+        direction LR
+        H[HomeScreen<br/>工程列表]
+        P[ProjectScreen<br/>步骤导航]
+        S[SettingsScreen<br/>设置页面]
+        W1[StepImport<br/>素材导入]
+        W2[StepRecognize<br/>ASR识别]
+        W3[StepMatch<br/>字幕匹配]
+        W4[StepTimeline<br/>时间线]
+    end
+
+    subgraph PV["🔄 Provider 层 (Riverpod)"]
+        direction LR
+        PV1[ProjectListProvider]
+        PV2[ProjectDetailProvider]
+        PV3[AsrProcessProvider]
+        PV4[MatchProvider]
+        PV5[TimelineProvider]
+        PV6[SettingsProvider]
+    end
+
+    subgraph SV["⚙ Service 层"]
+        direction LR
+        SV1[DatabaseService<br/>SQLite]
+        SV2[MediaScanService<br/>目录扫描]
+        SV3[FfmpegService<br/>音视频处理]
+        SV4[SherpaOnnxService<br/>ASR引擎]
+        SV5[AsrBatchService<br/>批量编排]
+        SV6[SubtitleMatchService<br/>匹配算法]
+        SV7[AudioAlignService<br/>音频对齐]
+        SV8[ExportService<br/>导出XML/SRT]
+    end
+
+    subgraph MD["📦 Model 层"]
+        direction LR
+        M1[AsrProject]
+        M2[MediaFile]
+        M3[SubtitleClip]
+        M4[MatchPair]
+        M5[TimelineData]
+    end
+
+    subgraph EX["🔌 外部进程"]
+        EX1[FFmpeg / ffprobe]
+        EX2[sherpa-onnx-offline]
+        EX3[sherpa-onnx-vad<br/>+offline-asr]
+    end
+
+    UI --> PV
+    PV --> SV
+    PV --> MD
+    SV --> MD
+    SV3 --> EX1
+    SV4 --> EX2
+    SV4 --> EX3
+
+    style UI fill:#1a1a3e,stroke:#e94560,stroke-width:2px,color:#fff
+    style PV fill:#0f3460,stroke:#58a6ff,stroke-width:2px,color:#fff
+    style SV fill:#16213e,stroke:#3fb950,stroke-width:2px,color:#fff
+    style MD fill:#1c2541,stroke:#bc8cff,stroke-width:2px,color:#fff
+    style EX fill:#2d1b1b,stroke:#d29922,stroke-width:2px,color:#fff
+      </pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--blue)">📂</span> 文件结构</h2>
+    <div class="info-grid">
+      <div class="info-item">
+        <h3>core/ — 核心配置</h3>
+        <p><code>app_theme.dart</code> 深色/浅色主题<br>
+        <code>app_router.dart</code> GoRouter路由<br>
+        <code>constants.dart</code> 常量/阈值<br>
+        <code>extensions.dart</code> 扩展方法<br>
+        <code>snackbar_util.dart</code> 全局提示</p>
+      </div>
+      <div class="info-item">
+        <h3>l10n/ — 国际化</h3>
+        <p><code>app_localizations.dart</code><br>
+        中英文翻译映射<br>
+        context.loc.t('key') 调用<br>
+        context.locp() 带参数</p>
+      </div>
+      <div class="info-item">
+        <h3>models/ — 数据模型 (5个)</h3>
+        <p><code>AsrProject</code> 工程<br>
+        <code>MediaFile</code> 媒体文件<br>
+        <code>SubtitleClip</code> 字幕片段<br>
+        <code>MatchPair</code> 匹配对<br>
+        <code>TimelineData</code> 时间线</p>
+      </div>
+      <div class="info-item">
+        <h3>services/ — 业务服务 (8个)</h3>
+        <p>数据库 + 目录扫描 + FFmpeg<br>
+        sherpa-onnx + 批量ASR编排<br>
+        字幕匹配 + 音频对齐 + 导出<br>
+        全部为静态方法单例</p>
+      </div>
+      <div class="info-item">
+        <h3>providers/ — 状态管理 (6个)</h3>
+        <p>Riverpod AsyncNotifier<br>
+        工程/详情/ASR/匹配/时间线/设置<br>
+        持久化到 SQLite + JSON</p>
+      </div>
+      <div class="info-item">
+        <h3>screens/ + widgets/ — UI</h3>
+        <p>3个页面 + 12个组件<br>
+        四步骤工作流组件<br>
+        响应式布局 + 动画过渡</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== 业务流程 ==================== -->
+<div id="sec-flow" class="section">
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--green)">🔄</span> 完整业务流程</h2>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+graph LR
+    A["📁 创建工程"] --> B["🎬 素材导入"]
+    B --> C["🎤 ASR识别"]
+    C --> D["🔗 字幕匹配"]
+    D --> E["📐 时间线生成"]
+    D --> F["📤 导出"]
+
+    style A fill:#0f3460,stroke:#58a6ff,color:#fff
+    style B fill:#16213e,stroke:#3fb950,color:#fff
+    style C fill:#1a1a2e,stroke:#e94560,color:#fff
+    style D fill:#1c2541,stroke:#bc8cff,color:#fff
+    style E fill:#2d1b1b,stroke:#d29922,color:#fff
+    style F fill:#0f3460,stroke:#39d2c0,color:#fff
+      </pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--green)">📋</span> 五步工作流详细逻辑链</h2>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+graph TD
+    START([用户打开应用]) --> HOME[首页: 工程列表]
+    HOME --> |新建| CREATE[创建工程对话框]
+    CREATE --> |输入名称| DB_INSERT[(写入 SQLite)]
+    DB_INSERT --> PROJECT[工程详情页]
+
+    PROJECT --> STEP1[Step 1: 素材导入]
+    STEP1 --> |选择目录| SCAN[MediaScanService<br/>扫描目录]
+    SCAN --> |过滤扩展名| FFPROBE[FFmpegService<br/>获取时长]
+    FFPROBE --> |拖放文件| DROP[desktop_drop<br/>自动分类视频/音频]
+    DROP --> DB_MEDIA[(写入 media_files)]
+    FFPROBE --> DB_MEDIA
+    DB_MEDIA --> |确认导入| STEP2[Step 2: ASR识别]
+
+    STEP2 --> |开始识别| CHECK_ENV[检查 sherpa-onnx 环境]
+    CHECK_ENV --> |GPU可用| GPU[CUDA 加速]
+    CHECK_ENV --> |仅CPU| CPU[CPU 模式]
+    GPU --> EXTRACT[FFmpeg 提取 16kHz WAV]
+    CPU --> EXTRACT
+    EXTRACT --> RECOGNIZE[sherpa-onnx 识别]
+    RECOGNIZE --> |JSON输出| PARSE[解析 ASR 段落]
+    PARSE --> DB_SUB[(写入 subtitle_clips)]
+    DB_SUB --> |可中断/续传| STEP3[Step 3: 字幕匹配]
+
+    STEP3 --> |开始匹配| LOAD_SUB[加载 ASR 字幕]
+    LOAD_SUB --> CALC[计算文件名相似度<br/>+ 时长相似度<br/>+ 文本自评分]
+    CALC --> |综合评分| GREEDY[贪心分配]
+    GREEDY --> DB_MATCH[(写入 match_pairs)]
+    DB_MATCH --> |确认匹配| STEP4[Step 4: 时间线]
+
+    STEP4 --> BUILD[AudioAlignService<br/>构建时间线]
+    BUILD --> |裁切音频| TRIM[FFmpeg 裁切对齐]
+    BUILD --> EXPORT_XML[导出 XML/FCPXML]
+    BUILD --> EXPORT_SRT[导出 SRT]
+
+    style START fill:#3fb950,stroke:#3fb950,color:#000
+    style STEP1 fill:#0f3460,stroke:#58a6ff,color:#fff
+    style STEP2 fill:#1a1a2e,stroke:#e94560,color:#fff
+    style STEP3 fill:#1c2541,stroke:#bc8cff,color:#fff
+    style STEP4 fill:#2d1b1b,stroke:#d29922,color:#fff
+      </pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--orange)">🏷</span> 工程状态流转</h2>
+    <div class="status-flow">
+      <span class="status-node" style="background:#0f3460">已创建</span>
+      <span class="status-arrow">→</span>
+      <span class="status-node" style="background:#16213e;border:1px solid #3fb950">已导入</span>
+      <span class="status-arrow">→</span>
+      <span class="status-node" style="background:#1a1a2e;border:1px solid #d29922">识别中</span>
+      <span class="status-arrow">→</span>
+      <span class="status-node" style="background:#1c2541;border:1px solid #3fb950">已识别</span>
+      <span class="status-arrow">→</span>
+      <span class="status-node" style="background:#2d1b1b;border:1px solid #bc8cff">已匹配</span>
+      <span class="status-arrow">→</span>
+      <span class="status-node" style="background:#0f3460;border:1px solid #d29922">已生成</span>
+      <span class="status-arrow">→</span>
+      <span class="status-node" style="background:#3fb950;color:#000">已完成</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== 数据模型 ==================== -->
+<div id="sec-data" class="section">
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--purple)">🗄</span> ER 关系图</h2>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+erDiagram
+    PROJECT ||--o{ MEDIA_FILE : "1:N"
+    MEDIA_FILE ||--o{ SUBTITLE_CLIP : "1:N"
+    PROJECT ||--o{ MATCH_PAIR : "1:N"
+    MEDIA_FILE ||--o{ MATCH_PAIR : "video端"
+    MEDIA_FILE ||--o{ MATCH_PAIR : "audio端"
+
+    PROJECT {
+        string id PK
+        string name
+        string videoDirectory
+        string audioDirectory
+        enum status
+        string asrModel
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    MEDIA_FILE {
+        string id PK
+        string projectId FK
+        string filePath
+        enum type "video|audio"
+        int durationMs
+        enum subtitleStatus "pending|completed|failed"
+        datetime createdAt
+    }
+
+    SUBTITLE_CLIP {
+        string id PK
+        string mediaFileId FK
+        int startMs
+        int endMs
+        string text
+        int sortOrder
+    }
+
+    MATCH_PAIR {
+        string id PK
+        string projectId FK
+        string videoFileId FK
+        string audioFileId FK
+        double confidence
+        boolean confirmed
+        int offsetMs
+    }
+
+    TIMELINE_DATA {
+        string videoFileId
+        string audioFileId
+        int videoStartMs
+        int videoEndMs
+        int audioTrimStartMs
+        int audioTrimEndMs
+        int offsetMs
+    }
+      </pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--purple)">📊</span> 字段说明</h2>
+    <table class="data-table">
+      <thead>
+        <tr><th>模型</th><th>字段</th><th>类型</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td rowspan="3"><span class="badge" style="background:#0f3460">AsrProject</span></td>
+          <td><code>id</code></td><td>String</td><td>UUID 主键</td></tr>
+        <tr><td><code>status</code></td><td>enum</td><td>7种状态流转</td></tr>
+        <tr><td><code>asrModel</code></td><td>String</td><td>默认 sense-voice-small</td></tr>
+        <tr><td rowspan="3"><span class="badge" style="background:#16213e">MediaFile</span></td>
+          <td><code>type</code></td><td>enum</td><td>video | audio</td></tr>
+        <tr><td><code>durationMs</code></td><td>int?</td><td>FFmpeg 提取</td></tr>
+        <tr><td><code>subtitleStatus</code></td><td>enum</td><td>pending/completed/failed</td></tr>
+        <tr><td rowspan="2"><span class="badge" style="background:#1c2541">SubtitleClip</span></td>
+          <td><code>startMs/endMs</code></td><td>int</td><td>毫秒精度时间戳</td></tr>
+        <tr><td><code>text</code></td><td>String</td><td>ASR 识别文本</td></tr>
+        <tr><td rowspan="2"><span class="badge" style="background:#2d1b1b">MatchPair</span></td>
+          <td><code>confidence</code></td><td>double</td><td>0.0~1.0 匹配置信度</td></tr>
+        <tr><td><code>offsetMs</code></td><td>int</td><td>音频对齐偏移量</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ==================== 状态管理 ==================== -->
+<div id="sec-state" class="section">
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--blue)">🔄</span> Provider 依赖关系</h2>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+graph TD
+    SETTINGS[SettingsProvider<br/>🔧 路径/语言/主题/窗口]
+    SETTINGS -.->|被读取| PV3
+    SETTINGS -.->|被读取| APP[app.dart<br/>主题+语言切换]
+
+    PV1[ProjectListProvider<br/>📋 工程列表]
+    PV2[ProjectDetailProvider<br/>📂 工程详情+素材]
+    PV3[AsrProcessProvider<br/>🎤 ASR识别过程]
+    PV4[MatchProvider<br/>🔗 匹配过程]
+    PV5[TimelineProvider<br/>📐 时间线]
+
+    PV1 -->|DB| DB[(DatabaseService)]
+    PV2 -->|DB| DB
+    PV2 -->|扫描| MSS[MediaScanService]
+    PV2 -->|时长| FFS[FfmpegService]
+
+    PV3 -->|编排| ABS[AsrBatchService]
+    ABS -->|引擎| SOS[SherpaOnnxService]
+    ABS -->|WAV| FFS
+    ABS -->|DB| DB
+
+    PV4 -->|算法| SMS[SubtitleMatchService]
+    PV4 -->|DB| DB
+
+    PV5 -->|对齐| AAS[AudioAlignService]
+    PV5 -->|导出| ES[ExportService]
+    PV5 -->|DB| DB
+    AAS --> FFS
+
+    style SETTINGS fill:#d29922,stroke:#d29922,color:#000
+    style DB fill:#1a1a2e,stroke:#e94560,color:#fff
+    style FFS fill:#0f3460,stroke:#58a6ff,color:#fff
+    style SOS fill:#1a1a2e,stroke:#3fb950,color:#fff
+      </pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--blue)">📡</span> 各 Provider 状态结构</h2>
+    <div class="info-grid">
+      <div class="info-item">
+        <h3>ProjectListProvider</h3>
+        <p><code>projects</code> List&lt;AsrProject&gt;<br>
+        <code>isLoading</code> bool<br>
+        <code>error</code> String?</p>
+      </div>
+      <div class="info-item">
+        <h3>ProjectDetailProvider</h3>
+        <p><code>project</code> AsrProject?<br>
+        <code>videoFiles</code> / <code>audioFiles</code><br>
+        <code>currentStep</code> 0-3<br>
+        <code>isScanning</code> bool</p>
+      </div>
+      <div class="info-item">
+        <h3>AsrProcessProvider</h3>
+        <p><code>isRunning</code> / <code>isCancelled</code><br>
+        <code>overallProgress</code> 0.0~1.0<br>
+        <code>fileProgresses</code> 每文件进度<br>
+        <code>result</code> AsrBatchResult?</p>
+      </div>
+      <div class="info-item">
+        <h3>MatchProvider</h3>
+        <p><code>matchPairs</code> List&lt;MatchPair&gt;<br>
+        <code>unmatchedVideos/Audios</code><br>
+        <code>isMatching</code> bool<br>
+        <code>progress</code> double</p>
+      </div>
+      <div class="info-item">
+        <h3>TimelineProvider</h3>
+        <p><code>timelineList</code> List&lt;TimelineData&gt;<br>
+        <code>isBuilding/isTrimming/isExporting</code><br>
+        <code>trimProgress</code> double<br>
+        <code>exportPath</code> String?</p>
+      </div>
+      <div class="info-item">
+        <h3>SettingsProvider</h3>
+        <p><code>ffmpegPath/sherpaOnnxPath</code><br>
+        <code>modelPath/proxyAddress</code><br>
+        <code>vadMode/asrLanguage</code><br>
+        <code>locale/themeMode</code><br>
+        <code>windowX/Y/Width/Height</code></p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== ASR引擎 ==================== -->
+<div id="sec-asr" class="section">
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--accent)">🎤</span> ASR 识别流程</h2>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+graph TD
+    START[开始批量识别] --> ENV[检查 sherpa-onnx 环境]
+    ENV --> |环境异常| ERR[返回错误]
+    ENV --> |环境就绪| LOOP{遍历音频文件}
+
+    LOOP --> |检查已有字幕| SKIP{已有字幕?}
+    SKIP --> |是| SKIP_DONE[跳过 ✅ 断点续传核心]
+    SKIP --> |否| EXTRACT[FFmpeg 提取 16kHz WAV]
+
+    EXTRACT --> GPU_CHECK{检测 GPU}
+    GPU_CHECK --> |CUDA 可用| GPU_RUN[CUDA 模式识别]
+    GPU_CHECK --> |仅 CPU| CPU_RUN[CPU 模式识别]
+
+    GPU_RUN --> |CUDA 失败| AUTO_FALLBACK[自动降级到 CPU]
+    GPU_RUN --> |成功| PARSE
+    CPU_RUN --> PARSE[解析 JSON 输出]
+    AUTO_FALLBACK --> PARSE
+
+    PARSE --> SPLIT{文本 > 42字?}
+    SPLIT --> |是| BY_PUNCT[按标点拆分<br/>时间按字符等比分配]
+    SPLIT --> |否| SAVE
+    BY_PUNCT --> SAVE[保存到 subtitle_clips 表]
+    SAVE --> LOOP
+    SKIP_DONE --> LOOP
+
+    LOOP --> |全部完成| RESULT[返回 AsrBatchResult]
+    LOOP --> |用户取消| CANCEL[保留进度，可续传]
+
+    style START fill:#3fb950,stroke:#3fb950,color:#000
+    style ERR fill:#f44336,stroke:#f44336,color:#fff
+    style SKIP_DONE fill:#58a6ff,stroke:#58a6ff,color:#000
+    style AUTO_FALLBACK fill:#d29922,stroke:#d29922,color:#000
+    style CANCEL fill:#d29922,stroke:#d29922,color:#000
+      </pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--accent)">⚡</span> GPU/CUDA 自动降级机制</h2>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+graph LR
+    A[4级 CUDA 验证] --> B{NVIDIA GPU?}
+    B -->|否| CPU[CPU 模式]
+    B -->|是| C{CUDA DLL?}
+    C -->|否| CPU
+    C -->|是| D{cuDNN DLL?}
+    D -->|否| CPU
+    D -->|是| E{cuFFT DLL?}
+    E -->|否| CPU
+    E -->|是| GPU[CUDA GPU 加速 🚀]
+
+    GPU --> |运行时失败| FALLBACK[自动降级 CPU]
+    CPU --> RUN[正常识别]
+
+    style GPU fill:#3fb950,stroke:#3fb950,color:#000
+    style CPU fill:#d29922,stroke:#d29922,color:#000
+    style FALLBACK fill:#f44336,stroke:#f44336,color:#fff
+      </pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--accent)">📊</span> 单文件识别状态机</h2>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+stateDiagram-v2
+    [*] --> 待识别
+    待识别 --> 提取音频 : 开始
+    提取音频 --> 识别中 : WAV就绪
+    识别中 --> 保存中 : ASR完成
+    保存中 --> 已完成 : 写入DB
+    提取音频 --> 失败 : FFmpeg错误
+    识别中 --> 失败 : 引擎错误
+    待识别 --> 已跳过 : 已有字幕
+    已完成 --> [*]
+    已跳过 --> [*]
+    失败 --> [*]
+      </pre>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== 匹配算法 ==================== -->
+<div id="sec-match" class="section">
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--purple)">🔗</span> 字幕匹配算法流程</h2>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+graph TD
+    START[开始匹配] --> LOAD_V[加载所有视频文件]
+    LOAD_V --> LOAD_A[加载所有音频文件]
+    LOAD_A --> LOAD_S[加载所有音频的 ASR 字幕]
+
+    LOAD_S --> LOOP_V{遍历每个视频}
+    LOOP_V --> NAME[提取视频文件名<br/>去掉扩展名]
+
+    NAME --> SCORE1[文件名相似度 × 0.6]
+    NAME --> SCORE2[时长相似度 × 0.3]
+    NAME --> SCORE3[文本自评分 × 0.1]
+
+    SCORE1 --> COMBO[综合得分]
+    SCORE2 --> COMBO
+    SCORE3 --> COMBO
+
+    COMBO --> RANK[所有候选按得分排序]
+    RANK --> GREEDY[贪心分配:<br/>已分配文件不再参与]
+    GREEDY --> FILTER{得分 ≥ 0.3?}
+    FILTER --> |否| DISCARD[丢弃该匹配]
+    FILTER --> |是| SAVE[保存 MatchPair]
+
+    SAVE --> CONF{置信度 ≥ 0.9?}
+    CONF --> |是| AUTO[自动确认 ✓]
+    CONF --> |否| MANUAL[待人工确认]
+
+    AUTO --> LOOP_V
+    MANUAL --> LOOP_V
+    DISCARD --> LOOP_V
+    LOOP_V --> |完成| END[返回匹配结果]
+
+    style START fill:#3fb950,stroke:#3fb950,color:#000
+    style COMBO fill:#58a6ff,stroke:#58a6ff,color:#000
+    style AUTO fill:#3fb950,stroke:#3fb950,color:#000
+    style DISCARD fill:#f44336,stroke:#f44336,color:#fff
+      </pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--purple)">📐</span> 三维评分体系</h2>
+    <div class="info-grid">
+      <div class="info-item">
+        <h3>文件名相似度（权重 60%）</h3>
+        <p>基于 Levenshtein 编辑距离<br>
+        完全匹配 = 1.0<br>
+        包含关系 = 0.9<br>
+        模糊匹配 = 编辑距离比</p>
+      </div>
+      <div class="info-item">
+        <h3>时长相似度（权重 30%）</h3>
+        <p>视频与音频的时长差异比<br>
+        10% 以内 = 高度相似<br>
+        线性衰减计算</p>
+      </div>
+      <div class="info-item">
+        <h3>文本自评分（权重 10%）</h3>
+        <p>从视频文件名提取数字序列<br>
+        检查是否出现在 ASR 字幕文本中<br>
+        辅助验证匹配正确性</p>
+      </div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div> 高置信度 ≥ 0.9（自动确认）</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div> 中置信度 0.7 ~ 0.9</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f44336"></div> 低置信度 0.3 ~ 0.7</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#30363d"></div> 低于 0.3（丢弃）</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ==================== 导出流程 ==================== -->
+<div id="sec-export" class="section">
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--cyan)">📤</span> 时间线生成与导出</h2>
+    <div class="mermaid-wrap">
+      <pre class="mermaid">
+graph TD
+    START[构建时间线] --> LOAD[加载已确认的 MatchPair]
+    LOAD --> LOOP{遍历每个匹配对}
+    LOOP --> |获取字幕范围| RANGE[首尾字幕时间 ± 500ms 余量]
+    RANGE --> OFFSET{两端都有字幕?}
+    OFFSET --> |是| CALC_OFFSET[首条字幕起始时间差 → offsetMs]
+    OFFSET --> |否| ZERO[offsetMs = 0]
+    CALC_OFFSET --> BUILD_TD[生成 TimelineData]
+    ZERO --> BUILD_TD
+    BUILD_TD --> LOOP
+    LOOP --> |完成| PREVIEW[时间线可视化预览]
+
+    PREVIEW --> |用户操作| EXPORT{选择导出格式}
+
+    EXPORT --> |XML/FCPXML| FCPXML[生成 FCPXML 1.9<br/>Premiere / DaVinci]
+    EXPORT --> |SRT| SRT[生成 SRT 字幕<br/>通用格式]
+    EXPORT --> |批量 SRT| SRT_BATCH[按视频文件名<br/>分别导出 SRT]
+    EXPORT --> |裁切导出| TRIM[FFmpeg 批量裁切<br/>对齐后的 WAV]
+
+    FCPXML --> DONE[导出完成 ✅]
+    SRT --> DONE
+    SRT_BATCH --> DONE
+    TRIM --> DONE
+
+    style START fill:#3fb950,stroke:#3fb950,color:#000
+    style DONE fill:#3fb950,stroke:#3fb950,color:#000
+    style FCPXML fill:#58a6ff,stroke:#58a6ff,color:#000
+    style SRT fill:#bc8cff,stroke:#bc8cff,color:#000
+    style TRIM fill:#d29922,stroke:#d29922,color:#000
+      </pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon" style="background:var(--cyan)">📁</span> 导出格式对比</h2>
+    <table class="data-table">
+      <thead>
+        <tr><th>格式</th><th>适用软件</th><th>内容</th><th>时间精度</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge" style="background:#58a6ff">XML</span></td>
+          <td>Adobe Premiere Pro</td>
+          <td>视频片段 + 音频对齐 + 字幕轨道</td>
+          <td>24fps 帧级</td>
+        </tr>
+        <tr>
+          <td><span class="badge" style="background:#bc8cff">FCPXML</span></td>
+          <td>Final Cut Pro X / DaVinci</td>
+          <td>完整项目结构 + 资源引用</td>
+          <td>2400 时间基</td>
+        </tr>
+        <tr>
+          <td><span class="badge" style="background:#3fb950">SRT</span></td>
+          <td>所有播放器/剪辑软件</td>
+          <td>序号 + 时间轴 + 字幕文本</td>
+          <td>毫秒级</td>
+        </tr>
+        <tr>
+          <td><span class="badge" style="background:#d29922">裁切 WAV</span></td>
+          <td>音频后期</td>
+          <td>FFmpeg 精确裁切对齐音频</td>
+          <td>毫秒级</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#1c2333',
+      primaryColor: '#0f3460',
+      primaryTextColor: '#e6edf3',
+      primaryBorderColor: '#30363d',
+      lineColor: '#8b949e',
+      secondaryColor: '#16213e',
+      tertiaryColor: '#1a1a2e',
+      fontFamily: 'Segoe UI, system-ui, sans-serif',
+      fontSize: '13px',
+    },
+    flowchart: { htmlLabels: true, curve: 'basis' },
+    er: { useMaxWidth: true },
+  });
+
+  function show(id) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('sec-' + id).classList.add('active');
+    event.target.classList.add('active');
+    // Re-render mermaid for newly visible section
+    setTimeout(() => {
+      mermaid.run({ nodes: document.querySelectorAll('#sec-' + id + ' .mermaid') });
+    }, 50);
+  }
+</script>
+
+</body>
+</html>
