@@ -65,10 +65,11 @@ class _StepMatchState extends ConsumerState<StepMatch> {
             ? MatchReviewFilter.pending
             : MatchReviewFilter.all);
     final visibleResults = _filterResults(state.syncResults, effectiveFilter);
-    final nextPending = state.syncResults.cast<SyncResult?>().firstWhere(
-      (item) => item?.reviewStatus == SyncReviewStatus.pending,
-      orElse: () => null,
+    final pendingResults = _filterResults(
+      state.syncResults,
+      MatchReviewFilter.pending,
     );
+    final nextPending = pendingResults.isEmpty ? null : pendingResults.first;
 
     return Stack(
       children: [
@@ -81,14 +82,6 @@ class _StepMatchState extends ConsumerState<StepMatch> {
               children: [
                 Row(
                   children: [
-                    Text(
-                      '一键合板',
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
                     const Spacer(),
                     if (state.isMatching) ...[
                       SizedBox(
@@ -250,8 +243,11 @@ class _StepMatchState extends ConsumerState<StepMatch> {
                                     result: result,
                                     videoFile: video,
                                     audioFile: audio,
-                                    onOpenDetail: () =>
-                                        _openReviewDialog(result.id),
+                                    onOpenDetail: () => _openReviewDialog(
+                                      results: visibleResults,
+                                      initialIndex: index,
+                                      filter: effectiveFilter,
+                                    ),
                                     onSecondaryAction: () async {
                                       if (isRejected) {
                                         await ref
@@ -357,8 +353,11 @@ class _StepMatchState extends ConsumerState<StepMatch> {
                                   child: ElevatedButton.icon(
                                     onPressed: nextPending == null
                                         ? null
-                                        : () =>
-                                              _openReviewDialog(nextPending.id),
+                                        : () => _openReviewDialog(
+                                            results: pendingResults,
+                                            initialIndex: 0,
+                                            filter: MatchReviewFilter.pending,
+                                          ),
                                     icon: const Icon(
                                       Icons.rate_review,
                                       size: 16,
@@ -465,14 +464,39 @@ class _StepMatchState extends ConsumerState<StepMatch> {
     }
   }
 
-  Future<void> _openReviewDialog(String syncResultId) async {
+  Future<void> _openReviewDialog({
+    required List<SyncResult> results,
+    required int initialIndex,
+    required MatchReviewFilter filter,
+  }) async {
+    if (results.isEmpty) return;
+    final clampedIndex = initialIndex.clamp(0, results.length - 1);
+    final sequenceIds = results.map((item) => item.id).toList(growable: false);
+
     await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (_) => SyncReviewDialog(
         projectId: widget.projectId,
-        syncResultId: syncResultId,
+        syncResultId: sequenceIds[clampedIndex],
+        reviewSequenceIds: sequenceIds,
+        initialIndex: clampedIndex,
+        sequenceMode: _toSequenceMode(filter),
       ),
     );
+  }
+
+  SyncReviewDialogSequenceMode _toSequenceMode(MatchReviewFilter filter) {
+    switch (filter) {
+      case MatchReviewFilter.pending:
+        return SyncReviewDialogSequenceMode.pending;
+      case MatchReviewFilter.all:
+        return SyncReviewDialogSequenceMode.all;
+      case MatchReviewFilter.accepted:
+        return SyncReviewDialogSequenceMode.accepted;
+      case MatchReviewFilter.rejected:
+        return SyncReviewDialogSequenceMode.rejected;
+    }
   }
 
   Future<void> _showManualMatchDialog(

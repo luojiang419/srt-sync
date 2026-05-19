@@ -155,7 +155,7 @@ class SettingsScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '${context.loc.t('app_title')} v1.1.6',
+                              '${context.loc.t('app_title')} v1.1.7',
                               style: TextStyle(
                                 color: AppTheme.textPrimary,
                                 fontSize: 14,

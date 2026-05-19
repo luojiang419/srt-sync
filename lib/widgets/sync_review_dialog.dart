@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
@@ -12,9 +13,14 @@ import '../services/subtitle_prepare_service.dart';
 
 enum _SubtitlePanelMode { fullTranscript, keywordList }
 
+enum SyncReviewDialogSequenceMode { pending, all, accepted, rejected }
+
 class SyncReviewDialog extends ConsumerStatefulWidget {
   final String projectId;
   final String syncResultId;
+  final List<String> reviewSequenceIds;
+  final int initialIndex;
+  final SyncReviewDialogSequenceMode sequenceMode;
   final Future<ManualAnchorMatchPreview> Function({
     required String projectId,
     required String videoClipId,
@@ -26,6 +32,9 @@ class SyncReviewDialog extends ConsumerStatefulWidget {
     super.key,
     required this.projectId,
     required this.syncResultId,
+    required this.reviewSequenceIds,
+    required this.initialIndex,
+    required this.sequenceMode,
     this.previewResolver,
   });
 
@@ -37,8 +46,14 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
   final ScrollController _videoController = ScrollController();
   final ScrollController _audioController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _dialogFocusNode = FocusNode(debugLabel: 'syncReviewDialog');
+  final FocusNode _searchFocusNode = FocusNode(debugLabel: 'syncReviewSearch');
   final Map<String, GlobalKey> _videoItemKeys = {};
   final Map<String, GlobalKey> _audioItemKeys = {};
+
+  late List<String> _reviewSequenceIds;
+  late String _currentSyncResultId;
+  late int _currentSequenceIndex;
 
   List<ReviewAnchorJumpTarget> _resolvedReviewAnchors = const [];
   List<SubtitleClip> _latestVideoClips = const [];
@@ -55,42 +70,108 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
   int _previewRequestId = 0;
 
   @override
+  void initState() {
+    super.initState();
+    final normalizedIds = widget.reviewSequenceIds
+        .where((id) => id.trim().isNotEmpty)
+        .toList(growable: true);
+    if (!normalizedIds.contains(widget.syncResultId)) {
+      normalizedIds.add(widget.syncResultId);
+    }
+    if (normalizedIds.isEmpty) {
+      normalizedIds.add(widget.syncResultId);
+    }
+
+    _reviewSequenceIds = List.unmodifiable(normalizedIds);
+    final currentIndex = _reviewSequenceIds.indexOf(widget.syncResultId);
+    final fallbackIndex = widget.initialIndex.clamp(
+      0,
+      _reviewSequenceIds.length - 1,
+    );
+    _currentSequenceIndex = currentIndex == -1 ? fallbackIndex : currentIndex;
+    _currentSyncResultId = _reviewSequenceIds[_currentSequenceIndex];
+  }
+
+  @override
   void dispose() {
     _videoController.dispose();
     _audioController.dispose();
     _searchController.dispose();
+    _dialogFocusNode.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(
-      syncReviewDetailProvider(widget.syncResultId),
+      syncReviewDetailProvider(_currentSyncResultId),
     );
 
-    return Dialog(
-      insetPadding: const EdgeInsets.all(28),
-      child: Container(
-        width: 1240,
-        height: 820,
-        padding: const EdgeInsets.all(20),
-        child: detailAsync.when(
-          data: (detail) {
-            if (detail == null) {
-              return Center(
-                child: Text(
-                  '当前结果不存在或已被移除。',
-                  style: TextStyle(color: AppTheme.textSecondary),
-                ),
-              );
-            }
-            return _buildContent(context, detail);
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('加载失败: $e')),
+    return Focus(
+      autofocus: true,
+      focusNode: _dialogFocusNode,
+      onKeyEvent: _handleDialogKeyEvent,
+      child: Dialog(
+        insetPadding: const EdgeInsets.all(28),
+        child: Container(
+          width: 1240,
+          height: 820,
+          padding: const EdgeInsets.all(20),
+          child: detailAsync.when(
+            data: (detail) {
+              if (detail == null) {
+                return Center(
+                  child: Text(
+                    '当前结果不存在或已被移除。',
+                    style: TextStyle(color: AppTheme.textSecondary),
+                  ),
+                );
+              }
+              return _buildContent(context, detail);
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('加载失败: $e')),
+          ),
         ),
       ),
     );
+  }
+
+  KeyEventResult _handleDialogKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      if (_isHandlingAction) {
+        return KeyEventResult.handled;
+      }
+      Navigator.of(context).pop();
+      return KeyEventResult.handled;
+    }
+
+    if (_searchFocusNode.hasFocus || _isHandlingAction) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      if (_canGoPrevious) {
+        _goToPreviousResult();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      if (_canGoNext) {
+        _goToNextResult();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   Widget _buildContent(BuildContext context, SyncReviewDetail detail) {
@@ -278,6 +359,26 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            '素材 $_sequenceDisplayIndex/$_sequenceDisplayTotal',
+            style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+          ),
+        ),
+        const SizedBox(width: 12),
+        OutlinedButton.icon(
+          onPressed: _canGoPrevious ? _goToPreviousResult : null,
+          icon: const Icon(Icons.arrow_back, size: 16),
+          label: const Text('上一条'),
+        ),
+        const SizedBox(width: 8),
+        OutlinedButton.icon(
+          onPressed: _canGoNext ? _goToNextResult : null,
+          icon: const Icon(Icons.arrow_forward, size: 16),
+          label: const Text('下一条'),
+        ),
+        const SizedBox(width: 8),
         OutlinedButton.icon(
           onPressed: canJumpToAnchor ? _jumpToNextResolvedAnchor : null,
           icon: const Icon(Icons.my_location, size: 16),
@@ -493,6 +594,7 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
         children: [
           Expanded(
             child: TextField(
+              focusNode: _searchFocusNode,
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: '输入关键词后，左右分栏会显示命中的字幕条列表',
@@ -825,7 +927,7 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
                 : () => _handleAction(
                     () => ref
                         .read(matchProvider.notifier)
-                        .restoreReview(widget.syncResultId, widget.projectId),
+                        .restoreReview(_currentSyncResultId, widget.projectId),
                   ),
             icon: const Icon(Icons.restore, size: 16),
             label: const Text('恢复'),
@@ -837,7 +939,7 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
                 : () => _handleAction(
                     () => ref
                         .read(matchProvider.notifier)
-                        .acceptReview(widget.syncResultId, widget.projectId),
+                        .acceptReview(_currentSyncResultId, widget.projectId),
                   ),
             icon: const Icon(Icons.check, size: 16),
             label: const Text('接受'),
@@ -858,7 +960,7 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
                 : () => _handleAction(
                     () => ref
                         .read(matchProvider.notifier)
-                        .rejectReview(widget.syncResultId, widget.projectId),
+                        .rejectReview(_currentSyncResultId, widget.projectId),
                   ),
             icon: const Icon(Icons.remove_circle_outline, size: 16),
             label: const Text('移除'),
@@ -869,12 +971,17 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
   }
 
   Future<void> _handleAction(Future<void> Function() action) async {
+    final previousSyncResultId = _currentSyncResultId;
+    final previousIndex = _currentSequenceIndex;
+
     setState(() => _isHandlingAction = true);
     try {
       await action();
-      if (mounted) {
-        Navigator.of(context).pop(true);
-      }
+      if (!mounted) return;
+      _syncSequenceAfterMutation(
+        previousSyncResultId: previousSyncResultId,
+        previousIndex: previousIndex,
+      );
     } finally {
       if (mounted) {
         setState(() => _isHandlingAction = false);
@@ -892,7 +999,7 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
       () => ref
           .read(matchProvider.notifier)
           .manualAnchorMatch(
-            syncResultId: widget.syncResultId,
+            syncResultId: _currentSyncResultId,
             projectId: widget.projectId,
             videoClipId: videoClipId,
             aggregateAudioClipId: aggregateAudioClipId,
@@ -1002,6 +1109,26 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
 
   bool get _hasActiveSearch => _searchQuery.trim().isNotEmpty;
 
+  bool get _canGoPrevious =>
+      _reviewSequenceIds.isNotEmpty && _currentSequenceIndex > 0;
+
+  bool get _canGoNext =>
+      _reviewSequenceIds.isNotEmpty &&
+      _currentSequenceIndex >= 0 &&
+      _currentSequenceIndex < _reviewSequenceIds.length - 1;
+
+  int get _sequenceDisplayIndex {
+    if (_reviewSequenceIds.isEmpty) return 1;
+    final safeIndex = _currentSequenceIndex.clamp(
+      0,
+      _reviewSequenceIds.length - 1,
+    );
+    return safeIndex + 1;
+  }
+
+  int get _sequenceDisplayTotal =>
+      _reviewSequenceIds.isEmpty ? 1 : _reviewSequenceIds.length;
+
   void _showVideoKeywordList() {
     setState(() {
       _videoPanelMode = _SubtitlePanelMode.keywordList;
@@ -1040,6 +1167,136 @@ class _SyncReviewDialogState extends ConsumerState<SyncReviewDialog> {
       clipId: clipId,
     );
     _refreshManualPreview();
+  }
+
+  void _goToPreviousResult() {
+    _switchToSequenceIndex(_currentSequenceIndex - 1);
+  }
+
+  void _goToNextResult() {
+    _switchToSequenceIndex(_currentSequenceIndex + 1);
+  }
+
+  void _switchToSequenceIndex(int nextIndex) {
+    if (nextIndex < 0 || nextIndex >= _reviewSequenceIds.length) {
+      return;
+    }
+
+    final nextSyncResultId = _reviewSequenceIds[nextIndex];
+    if (nextSyncResultId == _currentSyncResultId &&
+        nextIndex == _currentSequenceIndex) {
+      return;
+    }
+
+    setState(() {
+      _currentSequenceIndex = nextIndex;
+      _currentSyncResultId = nextSyncResultId;
+      _resetCurrentResultViewState();
+    });
+    _jumpToTopAfterNavigation();
+  }
+
+  void _syncSequenceAfterMutation({
+    required String previousSyncResultId,
+    required int previousIndex,
+  }) {
+    final updatedSequenceIds = _resolveSequenceIdsFromState(
+      ref.read(matchProvider).valueOrNull,
+    );
+
+    if (updatedSequenceIds.isEmpty) {
+      ref.invalidate(syncReviewDetailProvider(previousSyncResultId));
+      setState(() {
+        _reviewSequenceIds = const [];
+        _currentSequenceIndex = -1;
+        _currentSyncResultId = previousSyncResultId;
+        _manualPreview = null;
+        _isPreviewLoading = false;
+        _previewRequestId++;
+      });
+      return;
+    }
+
+    final retainedIndex = updatedSequenceIds.indexOf(previousSyncResultId);
+    if (retainedIndex != -1) {
+      ref.invalidate(syncReviewDetailProvider(previousSyncResultId));
+      setState(() {
+        _reviewSequenceIds = List.unmodifiable(updatedSequenceIds);
+        _currentSequenceIndex = retainedIndex;
+        _currentSyncResultId = previousSyncResultId;
+        _manualPreview = null;
+        _isPreviewLoading = false;
+        _previewRequestId++;
+      });
+      if (_selectedVideoClipId != null &&
+          _selectedAggregateAudioClipId != null) {
+        _refreshManualPreview();
+      }
+      return;
+    }
+
+    final targetIndex = previousIndex.clamp(0, updatedSequenceIds.length - 1);
+    setState(() {
+      _reviewSequenceIds = List.unmodifiable(updatedSequenceIds);
+      _currentSequenceIndex = targetIndex;
+      _currentSyncResultId = updatedSequenceIds[targetIndex];
+      _resetCurrentResultViewState();
+    });
+    _jumpToTopAfterNavigation();
+  }
+
+  List<String> _resolveSequenceIdsFromState(MatchState? matchState) {
+    final syncResults = matchState?.syncResults;
+    if (syncResults == null || syncResults.isEmpty) {
+      return const [];
+    }
+
+    final filteredResults = switch (widget.sequenceMode) {
+      SyncReviewDialogSequenceMode.pending =>
+        syncResults
+            .where((item) => item.reviewStatus == SyncReviewStatus.pending)
+            .toList(),
+      SyncReviewDialogSequenceMode.all => syncResults,
+      SyncReviewDialogSequenceMode.accepted =>
+        syncResults
+            .where((item) => item.reviewStatus == SyncReviewStatus.accepted)
+            .toList(),
+      SyncReviewDialogSequenceMode.rejected =>
+        syncResults
+            .where((item) => item.reviewStatus == SyncReviewStatus.rejected)
+            .toList(),
+    };
+
+    return filteredResults.map((item) => item.id).toList(growable: false);
+  }
+
+  void _resetCurrentResultViewState() {
+    _selectedVideoClipId = null;
+    _selectedAggregateAudioClipId = null;
+    _videoItemKeys.clear();
+    _audioItemKeys.clear();
+    _currentAnchorCycleIndex = null;
+    _manualPreview = null;
+    _isPreviewLoading = false;
+    _previewRequestId++;
+    _videoPanelMode = _hasActiveSearch
+        ? _SubtitlePanelMode.keywordList
+        : _SubtitlePanelMode.fullTranscript;
+    _audioPanelMode = _hasActiveSearch
+        ? _SubtitlePanelMode.keywordList
+        : _SubtitlePanelMode.fullTranscript;
+  }
+
+  void _jumpToTopAfterNavigation() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_videoController.hasClients) {
+        _videoController.jumpTo(0);
+      }
+      if (_audioController.hasClients) {
+        _audioController.jumpTo(0);
+      }
+    });
   }
 
   void _focusClip({
