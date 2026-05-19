@@ -7,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../core/constants.dart';
 import '../models/media_file.dart';
 import '../models/subtitle_clip.dart';
+import 'app_data_service.dart';
 import 'database_service.dart';
 import 'ffmpeg_service.dart';
 import 'sherpa_onnx_service.dart';
@@ -106,7 +107,7 @@ class AsrBatchService {
       totalFiles: mediaFiles.length,
     );
 
-    final wavDir = await Directory.systemTemp.createTemp('asr_wav_');
+    final wavDir = await AppDataService.createTempDirectory('asr_wav_');
 
     try {
       bool isCancelled() {
@@ -403,7 +404,7 @@ class AsrBatchService {
       throw Exception('sherpa-onnx 环境未就绪');
     }
 
-    final wavDir = await Directory.systemTemp.createTemp('asr_rerecog_');
+    final wavDir = await AppDataService.createTempDirectory('asr_rerecog_');
 
     try {
       await DatabaseService.deleteSubtitleClips(file.id);

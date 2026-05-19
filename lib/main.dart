@@ -4,14 +4,13 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'providers/settings_provider.dart';
+import 'services/app_data_service.dart';
 import 'services/database_service.dart';
 
 void main() {
@@ -27,6 +26,7 @@ void main() {
   runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      await AppDataService.preparePersistentDataLayout();
 
       // 预加载设置（用于恢复窗口位置）
       final settings = await _loadSettings();
@@ -68,8 +68,7 @@ void main() {
 /// 预加载设置（不依赖 Riverpod）
 Future<AppSettings> _loadSettings() async {
   try {
-    final dir = await getApplicationSupportDirectory();
-    final file = File(p.join(dir.path, 'asr_tools_settings.json'));
+    final file = File(await AppDataService.settingsFilePath());
     if (await file.exists()) {
       final json =
           jsonDecode(await file.readAsString()) as Map<String, dynamic>;
@@ -165,8 +164,8 @@ Future<void> _persistWindowGeometrySnapshot() async {
   try {
     final pos = await windowManager.getPosition();
     final size = await windowManager.getSize();
-    final dir = await getApplicationSupportDirectory();
-    final file = File(p.join(dir.path, 'asr_tools_settings.json'));
+    final file = File(await AppDataService.settingsFilePath());
+    await file.parent.create(recursive: true);
 
     Map<String, dynamic> json = {};
     if (await file.exists()) {

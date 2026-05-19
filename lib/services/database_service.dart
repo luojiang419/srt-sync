@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -13,6 +15,7 @@ import '../models/subtitle_file.dart';
 import '../models/subtitle_window.dart';
 import '../models/sync_review_detail.dart';
 import '../models/sync_result.dart';
+import 'app_data_service.dart';
 
 /// SQLite 数据库服务：建表、迁移、CRUD
 class DatabaseService {
@@ -35,8 +38,8 @@ class DatabaseService {
       _db = null;
     }
 
-    final dbPath = overridePath ?? await getDatabasesPath();
-    final path = overridePath ?? p.join(dbPath, AppConstants.dbName);
+    final path = overridePath ?? await AppDataService.databaseFilePath();
+    await Directory(p.dirname(path)).create(recursive: true);
 
     _db = await openDatabase(
       path,

@@ -2,10 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../core/constants.dart';
+import '../services/app_data_service.dart';
 
 /// 应用设置
 class AppSettings {
@@ -151,8 +150,6 @@ class AppSettings {
 
 /// 设置持久化 Notifier
 class SettingsNotifier extends AsyncNotifier<AppSettings> {
-  static const _settingsFile = 'asr_tools_settings.json';
-
   @override
   AppSettings build() {
     Future.microtask(() => _load());
@@ -161,8 +158,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
 
   Future<void> _load() async {
     try {
-      final dir = await getApplicationSupportDirectory();
-      final file = File(p.join(dir.path, _settingsFile));
+      final file = File(await AppDataService.settingsFilePath());
       if (await file.exists()) {
         final json =
             jsonDecode(await file.readAsString()) as Map<String, dynamic>;
@@ -178,8 +174,8 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   Future<void> save(AppSettings settings) async {
     state = AsyncData(settings);
     try {
-      final dir = await getApplicationSupportDirectory();
-      final file = File(p.join(dir.path, _settingsFile));
+      final file = File(await AppDataService.settingsFilePath());
+      await file.parent.create(recursive: true);
       await file.writeAsString(jsonEncode(settings.toMap()));
     } catch (_) {}
   }

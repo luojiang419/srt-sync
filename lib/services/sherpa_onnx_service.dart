@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../core/constants.dart';
+import 'app_data_service.dart';
 import 'ffmpeg_service.dart';
 
 /// 带超时的进程执行结果
@@ -491,7 +492,7 @@ class SherpaOnnxService {
 
     // Step 2: 对每段用 ffmpeg 截取 WAV 并识别
     final results = <AsrSegment>[];
-    final tmpDir = Directory.systemTemp.createTempSync('asr_seg_');
+    final tmpDir = await AppDataService.createTempDirectory('asr_seg_');
 
     // 预计算总子段数（用于进度计算）
     int totalSubSegs = 0;
