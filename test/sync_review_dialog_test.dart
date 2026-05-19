@@ -102,7 +102,7 @@ void main() {
       expect(find.text('音频总字幕'), findsOneWidget);
       expect(find.text('总字幕: all_audio.srt'), findsOneWidget);
       expect(find.text('第一条说明'), findsOneWidget);
-      expect(find.text('全部锚点'), findsOneWidget);
+      expect(find.text('全部锚点'), findsNothing);
       expect(find.text('合板锚点 1/2'), findsOneWidget);
       expect(find.text('锚点一预览成功'), findsOneWidget);
       expect(find.text('视频第一条不匹配 sync-1'), findsNWidgets(2));

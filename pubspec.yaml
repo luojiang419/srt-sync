@@ -1,7 +1,7 @@
 name: asr_tools
 description: "SenseVoice ASR 影视素材自动合板工具"
 publish_to: 'none'
-version: 1.1.15+33
+version: 1.1.16+34
 
 environment:
   sdk: ^3.10.7
